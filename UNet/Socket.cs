@@ -281,7 +281,7 @@ namespace UNet
 		}
 		#endregion
 
-		#region reliable ask
+		#region reliable ack
 		public void OnReceivedAck(int connection, int idStart, uint mask)
 		{
 			if(IdGreaterThan(idStart, reliableStartId)) mask <<= (idStart - reliableStartId + RELIABLE_IDS_COUNT) % RELIABLE_IDS_COUNT;
