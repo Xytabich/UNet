@@ -373,7 +373,7 @@ namespace UNet
 			}
 
 			bool sendUnreliable = true;
-			bool sendOrder = true;
+			bool sendOrder = false;
 			int reliableSendIndex = 0;
 			while(true)
 			{
