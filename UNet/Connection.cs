@@ -19,16 +19,15 @@ namespace UNet
 		public readonly int owner = -1;
 
 		private NetworkManager manager = null;
-		private Socket socket = null;
 
 		private int dataBufferLength;
 		private byte[] dataBuffer;
 
 		public override void OnPreSerialization()
 		{
-			if(socket == null || owner < 0) return;
+			if(manager == null || owner < 0) return;
 
-			socket.PrepareSendStream();
+			manager.PrepareSendStream(connectionIndex);
 
 			if(dataBufferLength < 1)
 			{

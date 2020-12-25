@@ -1,5 +1,4 @@
-﻿
-using UdonSharp;
+﻿using UdonSharp;
 using VRC.SDKBase;
 
 namespace UNet
@@ -24,11 +23,11 @@ namespace UNet
 
 		public const int MAX_PACKET_SIZE = 144;
 
-		private NetworkManager manager;
+		public NetworkManager manager;
 
-		void Start()
+		public bool IsInitComplete()
 		{
-			manager = GetComponent<NetworkManager>();
+			return (bool)manager.GetProgramVariable("isInitComplete");
 		}
 
 		/// <summary>
@@ -47,7 +46,7 @@ namespace UNet
 		/// Events list:
 		/// 	<item>
 		/// 		<term>OnUNetInit()</term>
-		/// 		<description>called when the network system is fully initialized and you can start sending data</description>
+		/// 		<description>called when the network system is fully initialized and you can start sending data.</description>
 		/// 	</item>
 		/// 	<item>
 		/// 		<term>OnUNetConnected(int OnUNetConnected_playerId)</term>
@@ -56,6 +55,10 @@ namespace UNet
 		/// 	<item>
 		/// 		<term>OnUNetDisconnected(int OnUNetDisconnected_playerId)</term>
 		/// 		<description>called when another player has disconnected and resources have been released.</description>
+		/// 	</item>
+		/// 	<item>
+		/// 		<term>OnUNetPrepareSend()</term>
+		/// 		<description>called before preparing the package for the next dispatch. Any data added in this callback will also participate in package preparation.</description>
 		/// 	</item>
 		/// 	<item>
 		/// 		<term>OnUNetReceived(int OnUNetReceived_sender, byte[] OnUNetReceived_dataBuffer, int OnUNetReceived_dataIndex, int OnUNetReceived_dataLength)</term>

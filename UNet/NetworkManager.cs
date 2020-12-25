@@ -27,7 +27,6 @@ namespace UNet
 		private Connection[] allConnections;
 
 		private int masterId = -1;
-		private Connection connection;
 		private Socket socket;
 
 		private int eventListenersCount = 0;
@@ -237,17 +236,32 @@ namespace UNet
 			}
 		}
 
+		public void PrepareSendStream(int index)
+		{
+			if(!isInitComplete) return;
+			for(var i = 0; i < eventListenersCount; i++)
+			{
+				eventListeners[i].SendCustomEvent("OnUNetPrepareSend");
+			}
+			socket.PrepareSendStream();
+		}
+
 		public void OnOwnerReceived(int index, int playerId)
 		{
 			var connection = allConnections[index];
 			if(connection.owner < 0)
 			{
-				activeConnectionsCount++;
 				connection.SetProgramVariable("owner", playerId);
+				activeConnectionsCount++;
+
 				if(playerId == Networking.LocalPlayer.playerId)
 				{
 					SetProgramVariable("localConnectionIndex", connection.connectionIndex);
-					this.connection = connection;
+					connection.SetProgramVariable("socket", socket);
+					socket.SetProgramVariable("connection", connection);
+					socket.SetProgramVariable("manager", this);
+					socket.Init();
+
 					hasLocal = true;
 				}
 				else
@@ -299,9 +313,9 @@ namespace UNet
 			}
 			else if(eventListenersCount >= eventListeners.Length)
 			{
-				var tmp = eventListeners;
-				eventListeners = new UdonSharpBehaviour[eventListenersCount * 2];
-				tmp.CopyTo(tmp, 0);
+				var tmp = new UdonSharpBehaviour[eventListenersCount * 2];
+				eventListeners.CopyTo(tmp, 0);
+				eventListeners = tmp;
 			}
 
 			eventListeners[eventListenersCount] = listener;
@@ -310,10 +324,10 @@ namespace UNet
 
 		public void RemoveEventsListener(UdonSharpBehaviour listener)
 		{
-			bool move = false;
+			bool found = false;
 			for(var i = 0; i < eventListenersCount; i++)
 			{
-				if(move)
+				if(found)
 				{
 					eventListeners[i - 1] = eventListeners[i];
 					eventListeners[i] = null;
@@ -321,10 +335,10 @@ namespace UNet
 				else if(eventListeners[i] == listener)
 				{
 					eventListeners[i] = null;
-					move = true;
+					found = true;
 				}
 			}
-			eventListenersCount--;
+			if(found) eventListenersCount--;
 		}
 
 		public bool SendAll(int mode, byte[] data, int dataLength)
@@ -386,11 +400,6 @@ namespace UNet
 		private void Init()
 		{
 			isInitComplete = true;
-
-			connection.SetProgramVariable("socket", socket);
-			socket.SetProgramVariable("connection", connection);
-			socket.SetProgramVariable("manager", this);
-			socket.Init();
 
 			if(eventListeners != null && eventListenersCount > 0)
 			{
