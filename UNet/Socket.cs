@@ -29,7 +29,7 @@ namespace UNet
 		private const int ACK_DATA_LENGTH = 6;
 
 		/// <summary>
-		/// Flush unreliable data buffers when they don't fit in a packet
+		/// Flush unreliable data buffers, if data doesn't fit into the packet
 		/// </summary>
 		public bool flushNotFitUnreliable = false;
 
@@ -420,7 +420,7 @@ namespace UNet
 			connection.SetProgramVariable("dataBufferLength", dataBufferLength);
 			connection.SetProgramVariable("dataBuffer", dataBuffer);
 
-			if(dropNotFitUnreliable)
+			if(flushNotFitUnreliable)
 			{
 				unreliableBufferIndex = 0;
 				unreliableBufferedCount = 0;
