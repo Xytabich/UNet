@@ -1,4 +1,5 @@
 ﻿using UdonSharp;
+using UnityEngine;
 using VRC.SDKBase;
 
 namespace UNet
@@ -64,9 +65,10 @@ namespace UNet
 		{
 			if(Networking.IsMaster)
 			{
-				int index = 0;
+				int index = -1;
 				if(player.isLocal)
 				{
+					index = 0;
 					hasMaster = true;
 					masterConnection = index;
 				}
@@ -81,8 +83,12 @@ namespace UNet
 						}
 					}
 				}
-				OnOwnerReceived(index, player.playerId);
-				Networking.SetOwner(player, allConnections[index].gameObject);
+				if(index < 0) Debug.LogError("UNet does not have an unoccupied connection for a new player");
+				else
+				{
+					OnOwnerReceived(index, player.playerId);
+					Networking.SetOwner(player, allConnections[index].gameObject);
+				}
 			}
 		}
 
