@@ -28,6 +28,11 @@ namespace UNet
 
 		private const int ACK_DATA_LENGTH = 6;
 
+		/// <summary>
+		/// Flush untrusted data buffers when they don't fit in a packet
+		/// </summary>
+		public bool dropNotFitUnreliable = false;
+
 		private NetworkManager manager = null;
 		private Connection connection = null;
 
@@ -414,6 +419,12 @@ namespace UNet
 			if(reliableSendMask == reliableExpectMask) reliableSendMask = 0;
 			connection.SetProgramVariable("dataBufferLength", dataBufferLength);
 			connection.SetProgramVariable("dataBuffer", dataBuffer);
+
+			if(dropNotFitUnreliable)
+			{
+				unreliableBufferIndex = 0;
+				unreliableBufferedCount = 0;
+			}
 		}
 
 		private bool TryAddToBuffer(byte[] data, int count)
