@@ -23,6 +23,13 @@ namespace UNet
 		private const uint FLOAT_COEF_MASK = 0x007FFFFF;
 
 		#region common types
+		/// <summary>
+		/// Writes boolean
+		/// </summary>
+		/// <remarks>Takes 1 byte</remarks>
+		/// <param name="buffer">Target buffer</param>
+		/// <param name="index">Index in the buffer at which to start writing data</param>
+		/// <returns>Size in bytes</returns>
 		public int WriteBool(bool value, byte[] buffer, int index)
 		{
 			if(value) buffer[index] = 1;
@@ -30,17 +37,38 @@ namespace UNet
 			return 1;
 		}
 
+		/// <summary>
+		/// Writes char
+		/// </summary>
+		/// <remarks>Takes 2 bytes</remarks>
+		/// <param name="buffer">Target buffer</param>
+		/// <param name="index">Index in the buffer at which to start writing data</param>
+		/// <returns>Size in bytes</returns>
 		public int WriteChar(char value, byte[] buffer, int index)
 		{
 			return WriteInt16((short)value, buffer, index);
 		}
 
+		/// <summary>
+		/// Writes signed 8-bit integer (<see cref="sbyte"/>)
+		/// </summary>
+		/// <remarks>Takes 1 byte</remarks>
+		/// <param name="buffer">Target buffer</param>
+		/// <param name="index">Index in the buffer at which to start writing data</param>
+		/// <returns>Size in bytes</returns>
 		public int WriteSByte(sbyte value, byte[] buffer, int index)
 		{
 			buffer[index] = (byte)(value < 0 ? (value + 0xFF) : value);
 			return 1;
 		}
 
+		/// <summary>
+		/// Writes signed 16-bit integer (<see cref="short"/>)
+		/// </summary>
+		/// <remarks>Takes 2 bytes</remarks>
+		/// <param name="buffer">Target buffer</param>
+		/// <param name="index">Index in the buffer at which to start writing data</param>
+		/// <returns>Size in bytes</returns>
 		public int WriteInt16(short value, byte[] buffer, int index)
 		{
 			int tmp = value < 0 ? (value + 0xFFFF) : value;
@@ -50,6 +78,13 @@ namespace UNet
 			return 2;
 		}
 
+		/// <summary>
+		/// Writes unsigned 16-bit integer (<see cref="ushort"/>)
+		/// </summary>
+		/// <remarks>Takes 2 bytes</remarks>
+		/// <param name="buffer">Target buffer</param>
+		/// <param name="index">Index in the buffer at which to start writing data</param>
+		/// <returns>Size in bytes</returns>
 		public int WriteUInt16(ushort value, byte[] buffer, int index)
 		{
 			int tmp = Convert.ToInt32(value);
@@ -59,6 +94,13 @@ namespace UNet
 			return 2;
 		}
 
+		/// <summary>
+		/// Writes signed 32-bit integer (<see cref="int"/>)
+		/// </summary>
+		/// <remarks>Takes 4 bytes</remarks>
+		/// <param name="buffer">Target buffer</param>
+		/// <param name="index">Index in the buffer at which to start writing data</param>
+		/// <returns>Size in bytes</returns>
 		public int WriteInt32(int value, byte[] buffer, int index)
 		{
 			buffer[index] = (byte)((value >> BIT24) & 0xFF);
@@ -71,6 +113,13 @@ namespace UNet
 			return 4;
 		}
 
+		/// <summary>
+		/// Writes unsigned 32-bit integer (<see cref="uint"/>)
+		/// </summary>
+		/// <remarks>Takes 4 bytes</remarks>
+		/// <param name="buffer">Target buffer</param>
+		/// <param name="index">Index in the buffer at which to start writing data</param>
+		/// <returns>Size in bytes</returns>
 		public int WriteUInt32(uint value, byte[] buffer, int index)
 		{
 			buffer[index] = (byte)((value >> BIT24) & 255u);
@@ -83,6 +132,13 @@ namespace UNet
 			return 4;
 		}
 
+		/// <summary>
+		/// Writes signed 64-bit integer (<see cref="long"/>)
+		/// </summary>
+		/// <remarks>Takes 8 bytes</remarks>
+		/// <param name="buffer">Target buffer</param>
+		/// <param name="index">Index in the buffer at which to start writing data</param>
+		/// <returns>Size in bytes</returns>
 		public int WriteInt64(long value, byte[] buffer, int index)
 		{
 			buffer[index] = (byte)((value >> BIT56) & 0xFF);
@@ -103,6 +159,13 @@ namespace UNet
 			return 8;
 		}
 
+		/// <summary>
+		/// Writes unsigned 64-bit integer (<see cref="ulong"/>)
+		/// </summary>
+		/// <remarks>Takes 8 bytes</remarks>
+		/// <param name="buffer">Target buffer</param>
+		/// <param name="index">Index in the buffer at which to start writing data</param>
+		/// <returns>Size in bytes</returns>
 		public int WriteUInt64(ulong value, byte[] buffer, int index)
 		{
 			buffer[index] = (byte)((value >> BIT56) & 255ul);
@@ -123,6 +186,13 @@ namespace UNet
 			return 8;
 		}
 
+		/// <summary>
+		/// Writes single-precision floating-point number
+		/// </summary>
+		/// <remarks>Takes 4 bytes</remarks>
+		/// <param name="buffer">Target buffer</param>
+		/// <param name="index">Index in the buffer at which to start writing data</param>
+		/// <returns>Size in bytes</returns>
 		public int WriteSingle(float value, byte[] buffer, int index)
 		{
 			uint tmp = 0;
@@ -164,21 +234,49 @@ namespace UNet
 		#endregion
 
 		#region special types
+		/// <summary>
+		/// Writes half-precision floating-point number
+		/// </summary>
+		/// <remarks>Takes 2 bytes</remarks>
+		/// <param name="buffer">Target buffer</param>
+		/// <param name="index">Index in the buffer at which to start writing data</param>
+		/// <returns>Size in bytes</returns>
 		public int WriteHalf(float value, byte[] buffer, int index)
 		{
 			return WriteUInt16(Mathf.FloatToHalf(value), buffer, index);
 		}
 
+		/// <summary>
+		/// Writes <see cref="DateTime"/> structure
+		/// </summary>
+		/// <remarks>Takes 8 bytes</remarks>
+		/// <param name="buffer">Target buffer</param>
+		/// <param name="index">Index in the buffer at which to start writing data</param>
+		/// <returns>Size in bytes</returns>
 		public int WriteDateTime(DateTime value, byte[] buffer, int index)
 		{
 			return WriteInt64(value.ToBinary(), buffer, index);
 		}
 
+		/// <summary>
+		/// Writes <see cref="TimeSpan"/> structure
+		/// </summary>
+		/// <remarks>Takes 8 bytes</remarks>
+		/// <param name="buffer">Target buffer</param>
+		/// <param name="index">Index in the buffer at which to start writing data</param>
+		/// <returns>Size in bytes</returns>
 		public int WriteTimeSpan(TimeSpan value, byte[] buffer, int index)
 		{
 			return WriteInt64(value.Ticks, buffer, index);
 		}
 
+		/// <summary>
+		/// Writes decimal floating-point number
+		/// </summary>
+		/// <remarks>Takes 16 bytes</remarks>
+		/// <param name="buffer">Target buffer</param>
+		/// <param name="index">Index in the buffer at which to start writing data</param>
+		/// <returns>Size in bytes</returns>
 		public int WriteDecimal(decimal value, byte[] buffer, int index)
 		{
 			var tmp = Decimal.GetBits(value);
@@ -192,6 +290,13 @@ namespace UNet
 			return 16;
 		}
 
+		/// <summary>
+		/// Writes <see cref="Guid"/> structure
+		/// </summary>
+		/// <remarks>Takes 16 bytes</remarks>
+		/// <param name="buffer">Target buffer</param>
+		/// <param name="index">Index in the buffer at which to start writing data</param>
+		/// <returns>Size in bytes</returns>
 		public int WriteGuid(Guid value, byte[] buffer, int index)
 		{
 			var tmp = value.ToByteArray();
@@ -199,6 +304,13 @@ namespace UNet
 			return 16;
 		}
 
+		/// <summary>
+		/// Writes unsigned 64-bit integer
+		/// </summary>
+		/// <remarks>Takes from 1 to 5 bytes</remarks>
+		/// <param name="buffer">Target buffer</param>
+		/// <param name="index">Index in the buffer at which to start writing data</param>
+		/// <returns>Size in bytes</returns>
 		public int WriteVarUInt32(uint value, byte[] buffer, int index)
 		{
 			int size = 1;
@@ -214,6 +326,13 @@ namespace UNet
 		#endregion
 
 		#region unity types
+		/// <summary>
+		/// Writes <see cref="Vector2"/> structure
+		/// </summary>
+		/// <remarks>Takes 8 bytes</remarks>
+		/// <param name="buffer">Target buffer</param>
+		/// <param name="index">Index in the buffer at which to start writing data</param>
+		/// <returns>Size in bytes</returns>
 		public int WriteVector2(Vector2 value, byte[] buffer, int index)
 		{
 			WriteSingle(value.x, buffer, index);
@@ -222,6 +341,13 @@ namespace UNet
 			return 8;
 		}
 
+		/// <summary>
+		/// Writes <see cref="Vector3"/> structure
+		/// </summary>
+		/// <remarks>Takes 12 bytes</remarks>
+		/// <param name="buffer">Target buffer</param>
+		/// <param name="index">Index in the buffer at which to start writing data</param>
+		/// <returns>Size in bytes</returns>
 		public int WriteVector3(Vector3 value, byte[] buffer, int index)
 		{
 			WriteSingle(value.x, buffer, index);
@@ -232,6 +358,13 @@ namespace UNet
 			return 12;
 		}
 
+		/// <summary>
+		/// Writes <see cref="Vector4"/> structure
+		/// </summary>
+		/// <remarks>Takes 16 bytes</remarks>
+		/// <param name="buffer">Target buffer</param>
+		/// <param name="index">Index in the buffer at which to start writing data</param>
+		/// <returns>Size in bytes</returns>
 		public int WriteVector4(Vector4 value, byte[] buffer, int index)
 		{
 			WriteSingle(value.x, buffer, index);
@@ -244,6 +377,13 @@ namespace UNet
 			return 16;
 		}
 
+		/// <summary>
+		/// Writes <see cref="Quaternion"/> structure
+		/// </summary>
+		/// <remarks>Takes 16 bytes</remarks>
+		/// <param name="buffer">Target buffer</param>
+		/// <param name="index">Index in the buffer at which to start writing data</param>
+		/// <returns>Size in bytes</returns>
 		public int WriteQuaternion(Quaternion value, byte[] buffer, int index)
 		{
 			WriteSingle(value.x, buffer, index);
@@ -256,6 +396,13 @@ namespace UNet
 			return 16;
 		}
 
+		/// <summary>
+		/// Writes half-precision <see cref="Vector2"/> structure
+		/// </summary>
+		/// <remarks>Takes 4 bytes</remarks>
+		/// <param name="buffer">Target buffer</param>
+		/// <param name="index">Index in the buffer at which to start writing data</param>
+		/// <returns>Size in bytes</returns>
 		public int WriteHalfVector2(Vector2 value, byte[] buffer, int index)
 		{
 			WriteHalf(value.x, buffer, index);
@@ -264,6 +411,13 @@ namespace UNet
 			return 4;
 		}
 
+		/// <summary>
+		/// Writes half-precision <see cref="Vector3"/> structure
+		/// </summary>
+		/// <remarks>Takes 6 bytes</remarks>
+		/// <param name="buffer">Target buffer</param>
+		/// <param name="index">Index in the buffer at which to start writing data</param>
+		/// <returns>Size in bytes</returns>
 		public int WriteHalfVector3(Vector3 value, byte[] buffer, int index)
 		{
 			WriteHalf(value.x, buffer, index);
@@ -274,6 +428,13 @@ namespace UNet
 			return 6;
 		}
 
+		/// <summary>
+		/// Writes half-precision <see cref="Vector4"/> structure
+		/// </summary>
+		/// <remarks>Takes 8 bytes</remarks>
+		/// <param name="buffer">Target buffer</param>
+		/// <param name="index">Index in the buffer at which to start writing data</param>
+		/// <returns>Size in bytes</returns>
 		public int WriteHalfVector4(Vector4 value, byte[] buffer, int index)
 		{
 			WriteHalf(value.x, buffer, index);
@@ -286,6 +447,13 @@ namespace UNet
 			return 8;
 		}
 
+		/// <summary>
+		/// Writes half-precision <see cref="Quaternion"/> structure
+		/// </summary>
+		/// <remarks>Takes 8 bytes</remarks>
+		/// <param name="buffer">Target buffer</param>
+		/// <param name="index">Index in the buffer at which to start writing data</param>
+		/// <returns>Size in bytes</returns>
 		public int WriteHalfQuaternion(Quaternion value, byte[] buffer, int index)
 		{
 			WriteHalf(value.x, buffer, index);
@@ -300,6 +468,12 @@ namespace UNet
 		#endregion
 
 		#region strings
+		/// <summary>
+		/// Writes ascii string
+		/// </summary>
+		/// <param name="buffer">Target buffer</param>
+		/// <param name="index">Index in the buffer at which to start writing data</param>
+		/// <returns>Size in bytes</returns>
 		public int WriteASCIIString(string str, byte[] buffer, int index)
 		{
 			int len = str.Length;
@@ -310,6 +484,12 @@ namespace UNet
 			return len;
 		}
 
+		/// <summary>
+		/// Writes ascii string with <see cref="WriteVarUInt32"/> prefix
+		/// </summary>
+		/// <param name="buffer">Target buffer</param>
+		/// <param name="index">Index in the buffer at which to start writing data</param>
+		/// <returns>Size in bytes</returns>
 		public int WriteVarASCIIString(string str, byte[] buffer, int index)
 		{
 			int size = WriteVarUInt32((uint)str.Length, buffer, index);
@@ -318,6 +498,12 @@ namespace UNet
 			return size;
 		}
 
+		/// <summary>
+		/// Writes utf-8 encoded string
+		/// </summary>
+		/// <param name="buffer">Target buffer</param>
+		/// <param name="index">Index in the buffer at which to start writing data</param>
+		/// <returns>Size in bytes</returns>
 		public int WriteUTF8String(string str, byte[] buffer, int index)
 		{
 			int byteIndex = 0;
@@ -359,6 +545,12 @@ namespace UNet
 			return byteIndex;
 		}
 
+		/// <summary>
+		/// Writes utf-8 encoded string with <see cref="WriteVarUInt32"/> prefix
+		/// </summary>
+		/// <param name="buffer">Target buffer</param>
+		/// <param name="index">Index in the buffer at which to start writing data</param>
+		/// <returns>Size in bytes</returns>
 		public int WriteVarUTF8String(string str, byte[] buffer, int index)
 		{
 			int size = GetUTF8StringSize(str);
@@ -368,6 +560,9 @@ namespace UNet
 			return size;
 		}
 
+		/// <summary>
+		/// Returns the size in bytes for utf-8 encoded string
+		/// </summary>
 		public int GetUTF8StringSize(string str)
 		{
 			int byteIndex = 0;

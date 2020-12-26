@@ -26,16 +26,34 @@ namespace UNet
 		private byte[] guidBuffer = new byte[16];
 
 		#region common types
+		/// <summary>
+		/// Reads boolean
+		/// </summary>
+		/// <remarks>Takes 1 byte</remarks>
+		/// <param name="buffer">Target buffer</param>
+		/// <param name="index">Index in the buffer where to start reading data</param>
 		public bool ReadBool(byte[] buffer, int index)
 		{
 			return buffer[index] == 1;
 		}
 
+		/// <summary>
+		/// Reads char
+		/// </summary>
+		/// <remarks>Takes 2 bytes</remarks>
+		/// <param name="buffer">Target buffer</param>
+		/// <param name="index">Index in the buffer where to start reading data</param>
 		public char ReadChar(byte[] buffer, int index)
 		{
 			return (char)ReadInt16(buffer, index);
 		}
 
+		/// <summary>
+		/// Reads signed 8-bit integer (<see cref="sbyte"/>)
+		/// </summary>
+		/// <remarks>Takes 1 byte</remarks>
+		/// <param name="buffer">Target buffer</param>
+		/// <param name="index">Index in the buffer where to start reading data</param>
 		public sbyte ReadSByte(byte[] buffer, int index)
 		{
 			int value = buffer[index];
@@ -43,6 +61,12 @@ namespace UNet
 			return Convert.ToSByte(value);
 		}
 
+		/// <summary>
+		/// Reads signed 16-bit integer (<see cref="short"/>)
+		/// </summary>
+		/// <remarks>Takes 2 bytes</remarks>
+		/// <param name="buffer">Target buffer</param>
+		/// <param name="index">Index in the buffer where to start reading data</param>
 		public short ReadInt16(byte[] buffer, int index)
 		{
 			int value = buffer[index] << BIT8 | buffer[index + 1];
@@ -50,11 +74,23 @@ namespace UNet
 			return Convert.ToInt16(value);
 		}
 
+		/// <summary>
+		/// Reads unsigned 16-bit integer (<see cref="ushort"/>)
+		/// </summary>
+		/// <remarks>Takes 2 bytes</remarks>
+		/// <param name="buffer">Target buffer</param>
+		/// <param name="index">Index in the buffer where to start reading data</param>
 		public ushort ReadUInt16(byte[] buffer, int index)
 		{
 			return Convert.ToUInt16(buffer[index] << BIT8 | buffer[index + 1]);
 		}
 
+		/// <summary>
+		/// Reads signed 32-bit integer (<see cref="int"/>)
+		/// </summary>
+		/// <remarks>Takes 4 bytes</remarks>
+		/// <param name="buffer">Target buffer</param>
+		/// <param name="index">Index in the buffer where to start reading data</param>
 		public int ReadInt32(byte[] buffer, int index)
 		{
 			int value = 0;
@@ -68,6 +104,12 @@ namespace UNet
 			return value;
 		}
 
+		/// <summary>
+		/// Reads unsigned 32-bit integer (<see cref="uint"/>)
+		/// </summary>
+		/// <remarks>Takes 4 bytes</remarks>
+		/// <param name="buffer">Target buffer</param>
+		/// <param name="index">Index in the buffer where to start reading data</param>
 		public uint ReadUInt32(byte[] buffer, int index)
 		{
 			uint value = 0;
@@ -81,6 +123,12 @@ namespace UNet
 			return value;
 		}
 
+		/// <summary>
+		/// Reads signed 64-bit integer (<see cref="long"/>)
+		/// </summary>
+		/// <remarks>Takes 8 bytes</remarks>
+		/// <param name="buffer">Target buffer</param>
+		/// <param name="index">Index in the buffer where to start reading data</param>
 		public long ReadInt64(byte[] buffer, int index)
 		{
 			long value = 0;
@@ -102,6 +150,12 @@ namespace UNet
 			return value;
 		}
 
+		/// <summary>
+		/// Reads unsigned 64-bit integer (<see cref="ulong"/>)
+		/// </summary>
+		/// <remarks>Takes 8 bytes</remarks>
+		/// <param name="buffer">Target buffer</param>
+		/// <param name="index">Index in the buffer where to start reading data</param>
 		public ulong ReadUInt64(byte[] buffer, int index)
 		{
 			ulong value = 0;
@@ -123,6 +177,12 @@ namespace UNet
 			return value;
 		}
 
+		/// <summary>
+		/// Reads single-precision floating-point number
+		/// </summary>
+		/// <remarks>Takes 4 bytes</remarks>
+		/// <param name="buffer">Target buffer</param>
+		/// <param name="index">Index in the buffer where to start reading data</param>
 		public float ReadSingle(byte[] buffer, int index)
 		{
 			uint value = ReadUInt32(buffer, index);
@@ -144,21 +204,45 @@ namespace UNet
 		#endregion
 
 		#region special types
+		/// <summary>
+		/// Reads half-precision floating-point number
+		/// </summary>
+		/// <remarks>Takes 2 bytes</remarks>
+		/// <param name="buffer">Target buffer</param>
+		/// <param name="index">Index in the buffer where to start reading data</param>
 		public float ReadHalf(byte[] buffer, int index)
 		{
 			return Mathf.HalfToFloat(ReadUInt16(buffer, index));
 		}
 
+		/// <summary>
+		/// Reads <see cref="DateTime"/> structure
+		/// </summary>
+		/// <remarks>Takes 8 bytes</remarks>
+		/// <param name="buffer">Target buffer</param>
+		/// <param name="index">Index in the buffer where to start reading data</param>
 		public DateTime ReadDateTime(byte[] buffer, int index)
 		{
 			return DateTime.FromBinary(ReadInt64(buffer, index));
 		}
 
+		/// <summary>
+		/// Reads <see cref="TimeSpan"/> structure
+		/// </summary>
+		/// <remarks>Takes 8 bytes</remarks>
+		/// <param name="buffer">Target buffer</param>
+		/// <param name="index">Index in the buffer where to start reading data</param>
 		public TimeSpan ReadTimeSpan(byte[] buffer, int index)
 		{
 			return new TimeSpan(ReadInt64(buffer, index));
 		}
 
+		/// <summary>
+		/// Reads decimal floating-point number
+		/// </summary>
+		/// <remarks>Takes 16 bytes</remarks>
+		/// <param name="buffer">Target buffer</param>
+		/// <param name="index">Index in the buffer where to start reading data</param>
 		public decimal ReadDecimal(byte[] buffer, int index)
 		{
 			decimalBuffer[0] = ReadInt32(buffer, index);
@@ -171,6 +255,12 @@ namespace UNet
 			return new decimal(decimalBuffer);
 		}
 
+		/// <summary>
+		/// Reads <see cref="Guid"/> structure
+		/// </summary>
+		/// <remarks>Takes 16 bytes</remarks>
+		/// <param name="buffer">Target buffer</param>
+		/// <param name="index">Index in the buffer where to start reading data</param>
 		public Guid ReadGuid(byte[] buffer, int index)
 		{
 			for(var i = 0; i < 16; i++)
@@ -183,7 +273,9 @@ namespace UNet
 		/// <summary>
 		/// Reads a variable-length unsigned integer.
 		/// </summary>
-		/// <remarks>To get size of integer use <see cref="GetVarUInt32Size"/></remarks>
+		/// <remarks>Takes from 1 to 5 bytes. To get size of integer use <see cref="GetVarUInt32Size"/>.</remarks>
+		/// <param name="buffer">Target buffer</param>
+		/// <param name="index">Index in the buffer where to start reading data</param>
 		public uint ReadVarUInt32(byte[] buffer, int index)
 		{
 			uint value = 0;
@@ -227,6 +319,12 @@ namespace UNet
 		#endregion
 
 		#region unity types
+		/// <summary>
+		/// Reads <see cref="Vector2"/> structure
+		/// </summary>
+		/// <remarks>Takes 8 bytes</remarks>
+		/// <param name="buffer">Target buffer</param>
+		/// <param name="index">Index in the buffer where to start reading data</param>
 		public Vector2 ReadVector2(byte[] buffer, int index)
 		{
 			float x = ReadSingle(buffer, index);
@@ -236,6 +334,12 @@ namespace UNet
 			return new Vector2(x, y);
 		}
 
+		/// <summary>
+		/// Reads <see cref="Vector3"/> structure
+		/// </summary>
+		/// <remarks>Takes 12 bytes</remarks>
+		/// <param name="buffer">Target buffer</param>
+		/// <param name="index">Index in the buffer where to start reading data</param>
 		public Vector3 ReadVector3(byte[] buffer, int index)
 		{
 			float x = ReadSingle(buffer, index);
@@ -247,6 +351,12 @@ namespace UNet
 			return new Vector3(x, y, z);
 		}
 
+		/// <summary>
+		/// Reads <see cref="Vector4"/> structure
+		/// </summary>
+		/// <remarks>Takes 16 bytes</remarks>
+		/// <param name="buffer">Target buffer</param>
+		/// <param name="index">Index in the buffer where to start reading data</param>
 		public Vector4 ReadVector4(byte[] buffer, int index)
 		{
 			float x = ReadSingle(buffer, index);
@@ -260,6 +370,12 @@ namespace UNet
 			return new Vector4(x, y, z, w);
 		}
 
+		/// <summary>
+		/// Reads <see cref="Quaternion"/> structure
+		/// </summary>
+		/// <remarks>Takes 16 bytes</remarks>
+		/// <param name="buffer">Target buffer</param>
+		/// <param name="index">Index in the buffer where to start reading data</param>
 		public Quaternion ReadQuaternion(byte[] buffer, int index)
 		{
 			float x = ReadSingle(buffer, index);
@@ -272,6 +388,13 @@ namespace UNet
 
 			return new Quaternion(x, y, z, w);
 		}
+		
+		/// <summary>
+		/// Reads half-precision <see cref="Vector2"/> structure
+		/// </summary>
+		/// <remarks>Takes 4 bytes</remarks>
+		/// <param name="buffer">Target buffer</param>
+		/// <param name="index">Index in the buffer where to start reading data</param>
 		public Vector2 ReadHalfVector2(byte[] buffer, int index)
 		{
 			float x = ReadHalf(buffer, index);
@@ -281,6 +404,12 @@ namespace UNet
 			return new Vector2(x, y);
 		}
 
+		/// <summary>
+		/// Reads half-precision <see cref="Vector3"/> structure
+		/// </summary>
+		/// <remarks>Takes 6 bytes</remarks>
+		/// <param name="buffer">Target buffer</param>
+		/// <param name="index">Index in the buffer where to start reading data</param>
 		public Vector3 ReadHalfVector3(byte[] buffer, int index)
 		{
 			float x = ReadHalf(buffer, index);
@@ -292,6 +421,12 @@ namespace UNet
 			return new Vector3(x, y, z);
 		}
 
+		/// <summary>
+		/// Reads half-precision <see cref="Vector4"/> structure
+		/// </summary>
+		/// <remarks>Takes 8 bytes</remarks>
+		/// <param name="buffer">Target buffer</param>
+		/// <param name="index">Index in the buffer where to start reading data</param>
 		public Vector4 ReadHalfVector4(byte[] buffer, int index)
 		{
 			float x = ReadHalf(buffer, index);
@@ -305,6 +440,12 @@ namespace UNet
 			return new Vector4(x, y, z, w);
 		}
 
+		/// <summary>
+		/// Reads half-precision <see cref="Quaternion"/> structure
+		/// </summary>
+		/// <remarks>Takes 8 bytes</remarks>
+		/// <param name="buffer">Target buffer</param>
+		/// <param name="index">Index in the buffer where to start reading data</param>
 		public Quaternion ReadHalfQuaternion(byte[] buffer, int index)
 		{
 			float x = ReadHalf(buffer, index);
@@ -323,6 +464,8 @@ namespace UNet
 		/// <summary>
 		/// Reads ascii string with <see cref="ReadVarUInt32"/> length prefix
 		/// </summary>
+		/// <param name="buffer">Target buffer</param>
+		/// <param name="index">Index in the buffer where to start reading data</param>
 		public string ReadVarASCIIString(byte[] buffer, int index)
 		{
 			uint length = ReadVarUInt32(buffer, index);
@@ -333,6 +476,8 @@ namespace UNet
 		/// <summary>
 		/// Reads the specified number of bytes and converts it to an ascii string
 		/// </summary>
+		/// <param name="buffer">Target buffer</param>
+		/// <param name="index">Index in the buffer where to start reading data</param>
 		public string ReadASCIIString(int bytesCount, byte[] buffer, int index)
 		{
 			char[] chars = new char[bytesCount];
@@ -344,8 +489,10 @@ namespace UNet
 		}
 
 		/// <summary>
-		/// Reads utf-8 string with <see cref="ReadVarUInt32"/> length prefix
+		/// Reads utf-8 encoded string with <see cref="ReadVarUInt32"/> length prefix
 		/// </summary>
+		/// <param name="buffer">Target buffer</param>
+		/// <param name="index">Index in the buffer where to start reading data</param>
 		public string ReadVarUTF8String(byte[] buffer, int index)
 		{
 			uint length = ReadVarUInt32(buffer, index);
@@ -354,8 +501,10 @@ namespace UNet
 		}
 
 		/// <summary>
-		/// Reads the specified number of bytes and converts it to an utf-8 string
+		/// Reads the specified number of bytes and converts it to an utf-8 encoded string
 		/// </summary>
+		/// <param name="buffer">Target buffer</param>
+		/// <param name="index">Index in the buffer where to start reading data</param>
 		public string ReadUTF8String(int bytesCount, byte[] buffer, int index)
 		{
 			string str = "";
