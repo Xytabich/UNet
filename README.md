@@ -38,7 +38,7 @@ Table of contents:
 ## <a name="TechnicalNotes"></a> Technical notes
 UNet uses syncable variables as a network stream, and only works with it, i.e. does not use SendCustomNetworkEvent and other things.
 
-#### <a name="Encoding"></a> Encoding
+### <a name="Encoding"></a> Encoding
 The stream is 2 string variables with the 'sync' attribute, the maximum total length of which is 192 characters (according to [this article](https://ask.vrchat.com/t/how-to-sync-with-udon/449/6)).
 
 Data is an array of bytes, which are encoded into string variables in base64 format.
@@ -47,12 +47,12 @@ It is not efficient in terms of data density, but [system library](https://docs.
 
 The resulting maximum data size is 144 bytes. You can modify the [Connection](https://github.com/Xytabich/UNet/blob/master/UNet/Connection.cs) class if you want to change the encoding method, but you will need to update the `MAX_PACKET_SIZE` constant in all classes.
 
-#### <a name="DataTransfer"></a> Data transfer
+### <a name="DataTransfer"></a> Data transfer
 Network messages are used to transfer data.
 A message can have different endpoints (client, player) and different delivery methods.
 Each network tick, messages are packed into a packet (up to 144 bytes) and sent.
 
-#### <a name="SystemProblems"></a> System problems:
+### <a name="SystemProblems"></a> System problems:
 - Slowness... This is the main problem, the speed of sending a packet is approximately comparable to a ping.
 Therefore, you can look at the ping and find out at what speed the packets are sent.
 Considering that the maximum packet size is 144 bytes, and the ping is about 200ms, you can get a speed of about 720 bytes/s (or 5.76kbits/s).
