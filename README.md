@@ -164,8 +164,8 @@ decimal
 System.DateTime
 System.TimeSpan
 System.Guid
-UnityEngine.Vector2/3/4 (+half-precision versioins)
-UnityEngine.Quaternion (+half-precision versioin)
+UnityEngine.Vector2/3/4 (+half-precision versions)
+UnityEngine.Quaternion (+half-precision version)
 ASCII/UTF8 string
 variable-length uint
 ```
