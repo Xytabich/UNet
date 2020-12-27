@@ -7,7 +7,7 @@ Created entirely on UNet, i.e. does not use VRChat position synchronization, so 
 ### Problems:
 - Supports only PC keyboard at this moment.
 - New players on scene has no text on notepads.
-- VRC throws some exceptions when spawning prefabs, but no problems were found.
+- VRC throws some exceptions when spawning prefabs, but no bad situations were found.
 
 ### Co-autors
 TarotReaderFrog
