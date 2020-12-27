@@ -161,11 +161,11 @@ ulong
 float
 half
 decimal
-DateTime
-TimeSpan
-Guid
-Vector2/3/4 (+half-precision versioins)
-Quaternion(+half-precision versioin)
+System.DateTime
+System.TimeSpan
+System.Guid
+UnityEngine.Vector2/3/4 (+half-precision versioins)
+UnityEngine.Quaternion (+half-precision versioin)
 ASCII/UTF8 string
 variable-length uint
 ```
