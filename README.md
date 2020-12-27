@@ -159,7 +159,7 @@ uint
 long
 ulong
 float
-half
+half (Mathf.FloatToHalf/HalfToFloat)
 decimal
 System.DateTime
 System.TimeSpan
