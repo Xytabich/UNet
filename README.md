@@ -72,10 +72,10 @@ After receiving acknowledgment from all clients for whom the message was intende
 If a reliable message has already been received, it is discarded.
 
 ### NetworkManager
-Network manager provides general network operation:
-- Monitors connections: assigns identifiers, makes a list of active connections
-- Processes received packets from connections: checks the type of message and whether it is intended for this client
-- Generates network events: network initialized, client connectied/disconnectied, message received
+Network manager controls general network activity:
+- Manages connections: assigns identifiers, makes a list of active connections.
+- Processes received packets: checks the type of message and if it is intended for this client, then forwards the data to the appropriate socket.
+- Generates network events: network initialization, client connection/disconnection, message receipt, preparation for sending.
 
 #### Network events description
 Callbacks must be implemented as described, i.e. using public methods and variables as arguments.
