@@ -15,6 +15,6 @@ TarotReaderFrog
 ### Setup
 - Download [latest unitypacke](https://github.com/Xytabich/UNet/blob/master/Examples/Notepad/Notepad-1.0.0.unitypackage) and upack it
 - Setup [UNet](https://github.com/Xytabich/UNet)
-- Add TabletSpawner to the scene
+- Add TabletSpawner to the scene and adjust the position where the tablet will spawn
 - Add trigger (button, for example) that calls "SpawnNotepad" event
 - You can also see an example in the scene
