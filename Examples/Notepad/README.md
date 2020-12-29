@@ -5,7 +5,7 @@ Each player has its own notepad, and others cannot intercept it.
 Created entirely on UNet, i.e. does not use VRChat position synchronization, so there may be small lags of the notepad from the player's hands in other clients.
 
 ### Problems:
-- Supports only PC keyboard at this moment.
+- Supports only PC at this moment.
 - New players on scene has no text on notepads.
 - VRC throws some exceptions when spawning prefabs, but no bad situations were found.
 
