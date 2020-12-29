@@ -25,6 +25,7 @@ namespace Xytabich.UNet.Notepad
 
 #pragma warning disable CS0649
 		private int OnUNetDisconnected_playerId;
+		private int OnUNetReceived_sender;
 		private byte[] OnUNetReceived_dataBuffer;
 		private int OnUNetReceived_dataIndex;
 #pragma warning restore CS0649
@@ -60,6 +61,7 @@ namespace Xytabich.UNet.Notepad
 
 		public void OnUNetReceived()
 		{
+			if(OnUNetReceived_sender != owner) return;
 			if(OnUNetReceived_dataBuffer[OnUNetReceived_dataIndex] == NOTEPAD_NETWORK_MESSAGE)
 			{
 				OnUNetReceived_dataIndex++;
