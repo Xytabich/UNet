@@ -30,6 +30,13 @@ namespace Xytabich.UNet.Notepad
 		private int OnUNetReceived_dataIndex;
 #pragma warning restore CS0649
 
+		void LateUpdate()
+		{
+			float step = Time.deltaTime * 10f;
+			transform.position = Vector3.Lerp(transform.position, targetPosition, step);
+			transform.rotation = Quaternion.Lerp(transform.rotation, targetRotation, step);
+		}
+
 		public void Init(NotepadSpawner spawner, NetworkInterface network, ByteBufferReader reader, int owner, Vector3 position, Quaternion rotation)
 		{
 			this.spawner = spawner;
@@ -42,19 +49,11 @@ namespace Xytabich.UNet.Notepad
 			transform.rotation = targetRotation = rotation;
 		}
 
-		public void UpdateOffset()
-		{
-			float step = Time.deltaTime * 10f;
-			transform.position = Vector3.Lerp(transform.position, targetPosition, step);
-			transform.rotation = Quaternion.Lerp(transform.rotation, targetRotation, step);
-		}
-
 		public void OnUNetDisconnected()
 		{
 			if(OnUNetDisconnected_playerId == owner)
 			{
 				network.RemoveEventsListener(this);
-				spawner.OnNotepadRemoved(this);
 				Destroy(gameObject);
 			}
 		}
