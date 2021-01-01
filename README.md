@@ -58,6 +58,7 @@ Therefore, you can look at the ping and find out at what speed the packets are s
 Considering that the maximum packet size is 144 bytes, and the ping is about 200ms, you can get a speed of about 720 bytes/s (or 5.76kbits/s).
 - Loss of packets (this is why I created the network system). Since the data is synchronized through an unreliable channel, data can be lost (in my tests, the loss was about 60%), which greatly reduces the transfer rate.
 - Delivery speed is the time it takes for a message to reach other players. You can recognize it like this: ping * 2. For me it's around 400-500ms, which is pretty damn slow.
+- Currently supports a maximum of 16 connections
 
 ## <a name="SystemInfo"></a> System info
 The system consists of three main components and one auxiliary:
