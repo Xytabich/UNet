@@ -74,6 +74,8 @@ The connection prepares a byte stream for sending or receiving a message. The tr
 But due to the specifics of the format, the ratio of the number of bytes to the number of characters is 3/4, which is much lower than if you use 7-bit asci (for which the ratio is 8/9).
 Therefore, you can change the conversion in this class if you need a denser data packing.
 
+Up to 16 connections are currently supported, with more connections coming in the future.
+
 ### <a name="Socket"></a> Socket
 The socket is responsible for handling connection data.
 
