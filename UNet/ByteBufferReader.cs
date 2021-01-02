@@ -285,6 +285,7 @@ namespace UNet
 			{
 				part = buffer[index];
 				value |= (part & 0x7F) << bits;
+				index++;
 
 				bits += 7;
 				if(bits > 35)
