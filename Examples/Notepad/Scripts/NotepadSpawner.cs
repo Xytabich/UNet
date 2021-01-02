@@ -17,9 +17,6 @@ namespace Xytabich.UNet.Notepad
 		private ByteBufferWriter writer;
 		private ByteBufferReader reader;
 
-		private int remoteNotepadsCount = 0;
-		private NotepadRemote[] remoteNotepads = null;
-
 #pragma warning disable CS0649
 		private int OnUNetReceived_sender;
 		private byte[] OnUNetReceived_dataBuffer;
@@ -37,14 +34,6 @@ namespace Xytabich.UNet.Notepad
 			network.AddEventsListener(this);
 		}
 
-		void LateUpdate()
-		{
-			for(var i = 0; i < remoteNotepadsCount; i++)
-			{
-				remoteNotepads[i].UpdateOffset();
-			}
-		}
-
 		/// <summary>
 		/// (Re)Spawns notepad for local player
 		/// </summary>
@@ -54,6 +43,7 @@ namespace Xytabich.UNet.Notepad
 			if(localNotepad == null)
 			{
 				var obj = VRCInstantiate(localNotepadPrefab);
+				obj.SetActive(true);
 				localNotepad = obj.GetComponent<NotepadLocal>();
 				init = true;
 			}
@@ -61,25 +51,6 @@ namespace Xytabich.UNet.Notepad
 			notepadTransform.position = transform.position;
 			notepadTransform.rotation = transform.rotation;
 			if(init) localNotepad.Init(network, writer);
-		}
-
-		public void OnNotepadRemoved(NotepadRemote notepad)
-		{
-			bool found = false;
-			for(var i = 0; i < remoteNotepadsCount; i++)
-			{
-				if(found)
-				{
-					remoteNotepads[i - 1] = remoteNotepads[i];
-					remoteNotepads[i] = null;
-				}
-				else if(remoteNotepads[i] == notepad)
-				{
-					remoteNotepads[i] = null;
-					found = true;
-				}
-			}
-			if(found) remoteNotepadsCount--;
 		}
 
 		public void OnUNetReceived()
@@ -95,21 +66,9 @@ namespace Xytabich.UNet.Notepad
 					var rotation = reader.ReadHalfQuaternion(OnUNetReceived_dataBuffer, OnUNetReceived_dataIndex);
 
 					var obj = VRCInstantiate(remoteNotepadPrefab);
+					obj.SetActive(true);
 					var notepad = obj.GetComponent<NotepadRemote>();
 					notepad.Init(this, network, reader, OnUNetReceived_sender, position, rotation);
-
-					if(remoteNotepads == null)
-					{
-						remoteNotepads = new NotepadRemote[2];
-					}
-					else if(remoteNotepadsCount >= remoteNotepads.Length)
-					{
-						var tmp = new NotepadRemote[remoteNotepadsCount * 2];
-						remoteNotepads.CopyTo(tmp, 0);
-						remoteNotepads = tmp;
-					}
-					remoteNotepads[remoteNotepadsCount] = notepad;
-					remoteNotepadsCount++;
 				}
 			}
 		}
