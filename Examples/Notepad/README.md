@@ -13,7 +13,7 @@ Created entirely on UNet, i.e. does not use VRChat position synchronization, so 
 TarotReaderFrog
 
 ### Setup
-- Download [latest unitypacke](https://github.com/Xytabich/UNet/blob/master/Examples/Notepad/Notepad-1.0.1.unitypackage) and upack it
+- Download [latest unitypacke](https://github.com/Xytabich/UNet/blob/master/Examples/Notepad/Notepad-1.0.2.unitypackage) and upack it
 - Setup [UNet](https://github.com/Xytabich/UNet)
 - Add TabletSpawner to the scene and adjust the position where the tablet will spawn
 - Add trigger (button, for example) that calls "SpawnNotepad" event on TabletSpawner
