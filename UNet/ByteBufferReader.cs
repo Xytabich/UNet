@@ -271,7 +271,7 @@ namespace UNet
 		}
 
 		/// <summary>
-		/// Reads a variable-length unsigned integer.
+		/// Reads a variable-length unsigned 32-bit integer
 		/// </summary>
 		/// <remarks>Takes from 1 to 5 bytes. To get size of integer use <see cref="GetVarUInt32Size"/>.</remarks>
 		/// <param name="buffer">Target buffer</param>
@@ -280,15 +280,14 @@ namespace UNet
 		{
 			uint value = 0;
 			uint part;
-			int i = 0;
+			int bits = 0;
 			do
 			{
-				value <<= 7;
 				part = buffer[index];
-				value |= part & 0x7F;
+				value |= (part & 0x7F) << bits;
 
-				i++;
-				if(i > 4)
+				bits += 7;
+				if(bits > 35)
 				{
 					Debug.LogError("Variable uint has invalid format");
 					return 0;
@@ -388,7 +387,7 @@ namespace UNet
 
 			return new Quaternion(x, y, z, w);
 		}
-		
+
 		/// <summary>
 		/// Reads half-precision <see cref="Vector2"/> structure
 		/// </summary>
