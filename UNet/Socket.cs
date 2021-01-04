@@ -7,9 +7,17 @@ namespace UNet
 	/// </summary>
 	public class Socket : UdonSharpBehaviour
 	{
-		private const int MODE_UNRELIABLE = 0;
-		private const int MODE_RELIABLE = 1;
-		private const int MODE_RELIABLE_SEQUENCED = 2;
+		private const byte MODE_UNRELIABLE = 0;
+		private const byte MODE_RELIABLE = 1;
+		private const byte MODE_RELIABLE_SEQUENCED = 2;
+		private const byte RELIABLE_ACK = 3;
+
+		private const byte TARGET_ALL = 0;
+		private const byte TARGET_MASTER = 1 << 2;
+		private const byte TARGET_SINGLE = 2 << 2;
+		private const byte TARGET_MULTIPLE = 3 << 2;
+
+		private const byte ACK_MSG_HEADER = RELIABLE_ACK | TARGET_SINGLE;
 
 		private const int MAX_PACKET_SIZE = 144;
 
@@ -141,7 +149,7 @@ namespace UNet
 		{
 			byte[] buffer = TryAddModeData(mode, 1, data, count);
 			if(buffer == null) return false;
-			buffer[0] = (byte)mode;
+			buffer[0] = (byte)(mode | TARGET_ALL);
 
 			if(mode == MODE_RELIABLE || mode == MODE_RELIABLE_SEQUENCED)
 			{
@@ -156,7 +164,7 @@ namespace UNet
 		{
 			byte[] buffer = TryAddModeData(mode, 1, data, count);
 			if(buffer == null) return false;
-			buffer[0] = (byte)(mode | 4);
+			buffer[0] = (byte)(mode | TARGET_MASTER);
 
 			if(mode == MODE_RELIABLE || mode == MODE_RELIABLE_SEQUENCED)
 			{
@@ -171,7 +179,7 @@ namespace UNet
 		{
 			byte[] buffer = TryAddModeData(mode, 2, data, count);
 			if(buffer == null) return false;
-			buffer[0] = (byte)(mode | 8);
+			buffer[0] = (byte)(mode | TARGET_SINGLE);
 
 			int targetIndex = 1;
 			if(mode == MODE_RELIABLE || mode == MODE_RELIABLE_SEQUENCED)
@@ -187,10 +195,11 @@ namespace UNet
 
 		public bool SendTargets(int mode, byte[] data, int count, int[] targetConnections)
 		{
-			byte[] buffer = TryAddModeData(mode, 5, data, count);
+			int maskSize = manager.connectionsMaskBytesCount;
+			byte[] buffer = TryAddModeData(mode, 1 + maskSize, data, count);
 			if(buffer == null) return false;
 
-			buffer[0] = (byte)(mode | 12);
+			buffer[0] = (byte)(mode | TARGET_MULTIPLE);
 
 			uint connectionsMask = 0;
 			int len = targetConnections.Length;
@@ -207,13 +216,22 @@ namespace UNet
 				reliableExpectedAcks[index] = mode == MODE_RELIABLE_SEQUENCED ? manager.connectionsMask : connectionsMask;
 			}
 
-			buffer[targetIndex] = (byte)(connectionsMask >> 24 & 255);
-			targetIndex++;
-			buffer[targetIndex] = (byte)(connectionsMask >> 16 & 255);
-			targetIndex++;
-			buffer[targetIndex] = (byte)(connectionsMask >> 8 & 255);
-			targetIndex++;
 			buffer[targetIndex] = (byte)(connectionsMask & 255);
+			if(maskSize > 1)
+			{
+				targetIndex++;
+				buffer[targetIndex] = (byte)(connectionsMask >> 8 & 255);
+				if(maskSize > 2)
+				{
+					targetIndex++;
+					buffer[targetIndex] = (byte)(connectionsMask >> 16 & 255);
+					if(maskSize > 3)
+					{
+						targetIndex++;
+						buffer[targetIndex] = (byte)(connectionsMask >> 24 & 255);
+					}
+				}
+			}
 
 			return true;
 		}
@@ -363,7 +381,7 @@ namespace UNet
 				if(mask != 0)
 				{
 					int id = sendAckStartIds[i];
-					ackDataBuffer[0] = 11;//3 (type: ack) | 8 (target send)
+					ackDataBuffer[0] = ACK_MSG_HEADER;
 					ackDataBuffer[1] = (byte)(id >> 8 & 255);
 					ackDataBuffer[2] = (byte)(id & 255);
 					ackDataBuffer[3] = (byte)(mask >> 8 & 255);

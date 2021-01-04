@@ -9,12 +9,15 @@ namespace UNet
 	/// </summary>
 	public class NetworkManager : UdonSharpBehaviour
 	{
-		private const int MODE_UNRELIABLE = 0;
-		private const int MODE_RELIABLE = 1;
-		private const int MODE_RELIABLE_SEQUENCED = 2;
-		private const int RELIABLE_ACK = 3;
+		private const byte MODE_UNRELIABLE = 0;
+		private const byte MODE_RELIABLE = 1;
+		private const byte MODE_RELIABLE_SEQUENCED = 2;
+		private const byte RELIABLE_ACK = 3;
 
-		private const int MAX_PACKET_SIZE = 144;
+		private const byte TARGET_ALL = 0;
+		private const byte TARGET_MASTER = 1;
+		private const byte TARGET_SINGLE = 2;
+		private const byte TARGET_MULTIPLE = 3;
 
 		[UdonSynced]
 		private int masterConnection = -1;
@@ -22,6 +25,7 @@ namespace UNet
 		public uint connectionsMask = 0;
 		public int activeConnectionsCount = 0;
 		public readonly int totalConnectionsCount;
+		public readonly int connectionsMaskBytesCount;
 
 		public readonly int localConnectionIndex;
 
@@ -52,6 +56,7 @@ namespace UNet
 			socket = gameObject.GetComponentInChildren<Socket>();
 			allConnections = gameObject.GetComponentsInChildren<Connection>();
 			SetProgramVariable("totalConnectionsCount", allConnections.Length);
+			SetProgramVariable("connectionsMaskBytesCount", (totalConnectionsCount - 1) / 8 + 1);
 
 			for(var i = 0; i < totalConnectionsCount; i++)
 			{
@@ -155,7 +160,7 @@ namespace UNet
 			{
 				int header = dataBuffer[index];
 				int type = header & 3;
-				int target = (header & 12) >> 2;
+				int target = (header >> 2) & 3;
 
 				index++;
 				if(type == MODE_UNRELIABLE)
@@ -453,12 +458,27 @@ namespace UNet
 
 		private bool ImTarget(int type, byte[] dataBuffer, int index)
 		{
-			if(type == 0) return true;
-			if(type == 1) return Networking.IsMaster;
-			if(type == 2) return dataBuffer[index] == localConnectionIndex;
-			if(type == 3)
+			if(type == TARGET_ALL) return true;
+			if(type == TARGET_MASTER) return Networking.IsMaster;
+			if(type == TARGET_SINGLE) return dataBuffer[index] == localConnectionIndex;
+			if(type == TARGET_MULTIPLE)
 			{
-				uint mask = (uint)dataBuffer[index] << 24 | (uint)dataBuffer[index + 1] << 16 | (uint)dataBuffer[index + 2] << 8 | (uint)dataBuffer[index + 3];
+				uint mask = (uint)dataBuffer[index];
+				if(connectionsMaskBytesCount > 1)
+				{
+					index++;
+					mask |= (uint)dataBuffer[index] << 8;
+					if(connectionsMaskBytesCount > 2)
+					{
+						index++;
+						mask |= (uint)dataBuffer[index] << 16;
+						if(connectionsMaskBytesCount > 3)
+						{
+							index++;
+							mask |= (uint)dataBuffer[index] << 24;
+						}
+					}
+				}
 				uint bit = 1u << localConnectionIndex;
 				return (mask & bit) == bit;
 			}
@@ -467,8 +487,8 @@ namespace UNet
 
 		private int GetTargetHeaderSize(int type)
 		{
-			if(type == 2) return 1;
-			if(type == 3) return 4;
+			if(type == TARGET_SINGLE) return 1;
+			if(type == TARGET_MULTIPLE) return connectionsMaskBytesCount;
 			return 0;
 		}
 	}
