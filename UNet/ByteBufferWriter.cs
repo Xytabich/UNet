@@ -305,7 +305,7 @@ namespace UNet
 		}
 
 		/// <summary>
-		/// Writes unsigned 64-bit integer
+		/// Writes variable-length unsigned 32-bit integer
 		/// </summary>
 		/// <remarks>Takes from 1 to 5 bytes</remarks>
 		/// <param name="buffer">Target buffer</param>
@@ -316,9 +316,10 @@ namespace UNet
 			int size = 1;
 			while(value > 127)
 			{
-				buffer[index] = (byte)(value & 0x7F);
+				buffer[index] = (byte)(value & 0x7F | 0x80);
 				value >>= 7;
 				size++;
+				index++;
 			}
 			buffer[index] = (byte)value;
 			return size;
