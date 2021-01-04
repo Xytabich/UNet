@@ -20,6 +20,9 @@ Table of contents:
 - [Serialization](#Serialization)
 - [Setup](#Setup)
 
+## Common info
+Supports up to 32 connections.
+
 ### <a name="SupportedDeliveryMethods"></a> Supported delivery methods:
 - Unreliable - simplest mode, low network load, but some data may be lost. It can be used to transfer frequently updated data, for example, the position of an object.
 - Reliable - the data will certainly be delivered, but this mode is more loads on the network. Can be used for chat messages or some actions on the map.
@@ -58,7 +61,6 @@ Therefore, you can look at the ping and find out at what speed the packets are s
 Considering that the maximum packet size is 144 bytes, and the ping is about 200ms, you can get a speed of about 720 bytes/s (or 5.76kbits/s).
 - Loss of packets (this is why I created the network system). Since the data is synchronized through an unreliable channel, data can be lost (in my tests, the loss was about 60%), which greatly reduces the transfer rate.
 - Delivery speed is the time it takes for a message to reach other players. You can recognize it like this: ping * 2. For me it's around 400-500ms, which is pretty damn slow.
-- Currently supports a maximum of 16 connections
 
 ## <a name="SystemInfo"></a> System info
 The system consists of three main components and one auxiliary:
@@ -74,8 +76,6 @@ The connection prepares a byte stream for sending or receiving a message. The tr
 
 But due to the specifics of the format, the ratio of the number of bytes to the number of characters is 3/4, which is much lower than if you use 7-bit asci (for which the ratio is 8/9).
 Therefore, you can change the conversion in this class if you need a denser data packing.
-
-**Up to 16 connections are currently supported, with more connections coming in the future.**
 
 ### <a name="Socket"></a> Socket
 The socket is responsible for handling connection data.
