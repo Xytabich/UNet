@@ -307,12 +307,12 @@ namespace UNet
 			int i = 0;
 			while((buffer[index + i] & 0x80) != 0)
 			{
-				i++;
 				if(i > 4)
 				{
 					Debug.LogError("Variable uint has invalid format");
 					return 0;
 				}
+				i++;
 			}
 			return i + 1;
 		}
