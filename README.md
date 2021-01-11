@@ -1,5 +1,5 @@
 # UNet
-UNet (UDON Networking) is a simple networking system that provides binary data transfer for Udon.
+UNet (UDON Networking) is a simple network system that provides binary data transfer for Udon.
 UNet supported base features used in network systems: unreliable and reliable delivery methods, targeted messages send, separation into master and common players.
 
 Table of contents:
