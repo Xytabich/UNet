@@ -181,3 +181,6 @@ Information about type sizes and other additional descriptions can be found in t
 - Add event listeners via NetworkInterface
 - Wait for the `OnUNetInit` event and start sending your messages.
 - When a message is received, `OnUNetReceived` is called on all event listeners.
+
+## Contact
+If you have any questions, suggestions, fixes or bug reports, you can write in Discord `Xytabich#5684`
