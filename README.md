@@ -19,6 +19,7 @@ Table of contents:
   - [NetworkInterface](#NetworkInterface)
 - [Serialization](#Serialization)
 - [Setup](#Setup)
+- [Contact](#Contact)
 
 ## Common info
 Supports up to 32 connections (including own).
@@ -182,5 +183,5 @@ Information about type sizes and other additional descriptions can be found in t
 - Wait for the `OnUNetInit` event and start sending your messages.
 - When a message is received, `OnUNetReceived` is called on all event listeners.
 
-## Contact
+## <a name="Contact"></a> Contact
 If you have any questions, suggestions, fixes or bug reports, you can write in Discord `Xytabich#5684`
