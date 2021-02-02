@@ -268,10 +268,7 @@ namespace UNet
 							}
 						}
 					}
-					else
-					{
-						index += GetTargetHeaderSize(target);
-					}
+					index += GetTargetHeaderSize(target);
 				}
 				else if(type == CONNECTION_ACK)
 				{
@@ -279,10 +276,7 @@ namespace UNet
 					{
 						socket.ConnectionConfirmed(connection);
 					}
-					else
-					{
-						index += GetTargetHeaderSize(target);
-					}
+					index += GetTargetHeaderSize(target);
 				}
 			}
 		}
