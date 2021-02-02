@@ -1,4 +1,5 @@
 ﻿using UdonSharp;
+using UnityEngine;
 
 namespace UNet
 {
@@ -11,13 +12,17 @@ namespace UNet
 		private const byte MODE_RELIABLE = 1;
 		private const byte MODE_RELIABLE_SEQUENCED = 2;
 		private const byte RELIABLE_ACK = 3;
+		private const byte CONNECTION_REGISTRATION = 4;
+		private const byte CONNECTION_ACK = 5;
 
 		private const byte TARGET_ALL = 0;
-		private const byte TARGET_MASTER = 1 << 2;
-		private const byte TARGET_SINGLE = 2 << 2;
-		private const byte TARGET_MULTIPLE = 3 << 2;
+		private const byte TARGET_MASTER = 1 << 3;
+		private const byte TARGET_SINGLE = 2 << 3;
+		private const byte TARGET_MULTIPLE = 3 << 3;
 
-		private const byte ACK_MSG_HEADER = RELIABLE_ACK | TARGET_SINGLE;
+		private const byte RELIABLE_ACK_MSG_HEADER = RELIABLE_ACK | TARGET_SINGLE;
+		private const byte CONNECTION_REG_MSG_HEADER = CONNECTION_REGISTRATION | TARGET_MULTIPLE;
+		private const byte CONNECTION_ACK_MSG_HEADER = CONNECTION_ACK | TARGET_MULTIPLE;
 
 		private const int MAX_PACKET_SIZE = 144;
 
@@ -34,7 +39,7 @@ namespace UNet
 		private const int RELIABLE_BUFFER_SIZE = 16;
 		private const int UNRELIABLE_BUFFER_SIZE = 32;
 
-		private const int ACK_DATA_LENGTH = 6;
+		private const int RELIABLE_ACK_DATA_LENGTH = 6;//header + id(2 bytes) + mask(2 bytes) + connection
 
 		/// <summary>
 		/// Flush unreliable data buffers, if data doesn't fit into the packet
@@ -43,6 +48,7 @@ namespace UNet
 
 		private NetworkManager manager = null;
 		private Connection connection = null;
+
 
 		#region reliable send
 		private int reliableStartId = 0;
@@ -62,7 +68,6 @@ namespace UNet
 		#region reliable ack
 		private int[] sendAckStartIds;
 		private uint[] sendAckMasks;
-		private byte[] ackDataBuffer;
 		#endregion
 
 		#region reliable receive
@@ -87,9 +92,17 @@ namespace UNet
 		private byte[] dataBuffer;
 		#endregion
 
+		#region connection confirmation
+		private uint connectionsAck = 0;
+		private uint connectionReg = 0;
+		#endregion
+
+		private byte[] tmpDataBuffer;
+
 		public void Init()
 		{
 			int connectionsCount = manager.totalConnectionsCount;
+
 			dataBufferLength = 0;
 			dataBuffer = new byte[MAX_PACKET_SIZE];
 			unreliableBuffer = new byte[UNRELIABLE_BUFFER_SIZE][];
@@ -101,7 +114,7 @@ namespace UNet
 
 			sendAckStartIds = new int[connectionsCount];
 			sendAckMasks = new uint[connectionsCount];
-			ackDataBuffer = new byte[ACK_DATA_LENGTH];
+			tmpDataBuffer = new byte[Mathf.Max(RELIABLE_ACK_DATA_LENGTH, 5)];//5 is max size of connection confirmation message
 
 			receivedReliableMasks = new uint[connectionsCount];
 			receivedReliableStartIds = new int[connectionsCount];
@@ -368,12 +381,76 @@ namespace UNet
 		}
 		#endregion
 
+		#region connection confirmation
+		public void ConnectionAck(int connectionIndex)
+		{
+			connectionsAck |= 1u << connectionIndex;
+		}
+
+		public void ConnectionConfirmed(int connectionIndex)
+		{
+			connectionReg &= (1u << connectionIndex) ^ 0xFFFFFFFF;
+		}
+
+		public void ConnectionReg(int connectionIndex)
+		{
+			connectionReg |= 1u << connectionIndex;
+		}
+
+		public void ConnectionRegAll(uint connections)
+		{
+			connectionReg |= connections;
+		}
+		#endregion
+
 		#region send
 		public void PrepareSendStream()
 		{
 			if(updateReliable) UpdateReliable();
 
 			dataBufferLength = 0;
+			if(connectionsAck != 0)
+			{
+				int maskSize = manager.connectionsMaskBytesCount;
+				tmpDataBuffer[0] = CONNECTION_ACK_MSG_HEADER;
+				tmpDataBuffer[1] = (byte)(connectionsAck & 255);
+				if(maskSize > 1)
+				{
+					tmpDataBuffer[2] = (byte)(connectionsAck >> 8 & 255);
+					if(maskSize > 2)
+					{
+						tmpDataBuffer[3] = (byte)(connectionsAck >> 16 & 255);
+						if(maskSize > 3)
+						{
+							tmpDataBuffer[4] = (byte)(connectionsAck >> 24 & 255);
+						}
+					}
+				}
+				if(TryAddToBuffer(tmpDataBuffer, maskSize + 1))
+				{
+					connectionsAck = 0;
+				}
+			}
+			if(connectionReg != 0)
+			{
+				int maskSize = manager.connectionsMaskBytesCount;
+				tmpDataBuffer[0] = CONNECTION_REG_MSG_HEADER;
+				tmpDataBuffer[1] = (byte)(connectionReg & 255);
+				if(maskSize > 1)
+				{
+					tmpDataBuffer[2] = (byte)(connectionReg >> 8 & 255);
+					if(maskSize > 2)
+					{
+						tmpDataBuffer[3] = (byte)(connectionReg >> 16 & 255);
+						if(maskSize > 3)
+						{
+							tmpDataBuffer[4] = (byte)(connectionReg >> 24 & 255);
+						}
+					}
+				}
+				TryAddToBuffer(tmpDataBuffer, maskSize + 1);
+			}
+
 			int len = sendAckMasks.Length;
 			for(var i = 0; i < len; i++)
 			{
@@ -381,13 +458,13 @@ namespace UNet
 				if(mask != 0)
 				{
 					int id = sendAckStartIds[i];
-					ackDataBuffer[0] = ACK_MSG_HEADER;
-					ackDataBuffer[1] = (byte)(id >> 8 & 255);
-					ackDataBuffer[2] = (byte)(id & 255);
-					ackDataBuffer[3] = (byte)(mask >> 8 & 255);
-					ackDataBuffer[4] = (byte)(mask & 255);
-					ackDataBuffer[5] = (byte)i;
-					if(TryAddToBuffer(ackDataBuffer, ACK_DATA_LENGTH))
+					tmpDataBuffer[0] = RELIABLE_ACK_MSG_HEADER;
+					tmpDataBuffer[1] = (byte)(id >> 8 & 255);
+					tmpDataBuffer[2] = (byte)(id & 255);
+					tmpDataBuffer[3] = (byte)(mask >> 8 & 255);
+					tmpDataBuffer[4] = (byte)(mask & 255);
+					tmpDataBuffer[5] = (byte)i;
+					if(TryAddToBuffer(tmpDataBuffer, RELIABLE_ACK_DATA_LENGTH))
 					{
 						sendAckMasks[i] = 0;
 					}
