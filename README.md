@@ -106,7 +106,7 @@ public void OnUNetInit(); // Called when the network system is fully initialized
 ```cs
 private int OnUNetConnected_playerId; // Player id from VRCPlayerApi.playerId
 
-public void OnUNetConnected(); // Called when another player has been connected and initialized.
+public void OnUNetConnected(); // Called when the connected player is ready to receive messages.
 ```
 ```cs
 private int OnUNetDisconnected_playerId; // Player id from VRCPlayerApi.playerId
