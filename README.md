@@ -23,7 +23,7 @@ Table of contents:
 - [Contact](#Contact)
 
 ## Common info
-Supports up to 32 connections (including own).
+Supports up to 31 connections (including own).
 
 ### <a name="SupportedDeliveryMethods"></a> Supported delivery methods:
 - Unreliable - simplest mode, low network load, but some data may be lost. It can be used to transfer frequently updated data, for example, the position of an object.
