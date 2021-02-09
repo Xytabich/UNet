@@ -13,13 +13,13 @@ namespace UNet
 		private const byte MODE_RELIABLE = 1;
 		private const byte MODE_RELIABLE_SEQUENCED = 2;
 		private const byte RELIABLE_ACK = 3;
-		private const byte CONNECTION_REGISTRATION = 4;
-		private const byte CONNECTION_ACK = 5;
 
 		private const byte TARGET_ALL = 0;
 		private const byte TARGET_MASTER = 1;
 		private const byte TARGET_SINGLE = 2;
 		private const byte TARGET_MULTIPLE = 3;
+
+		private const byte MSG_TYPE_MASK = 3;
 
 		[UdonSynced]
 		private int masterConnection = -1;
@@ -42,8 +42,6 @@ namespace UNet
 		private bool hasLocal = false;
 		private bool hasMaster = false;
 		private bool isInitComplete = false;
-
-		private uint connectedBeforeInit = 0;
 
 		void Start()
 		{
@@ -163,8 +161,8 @@ namespace UNet
 			while(index < dataBufferLength)
 			{
 				int header = dataBuffer[index];
-				int type = header & 7;
-				int target = (header >> 3) & 3;
+				int type = header & MSG_TYPE_MASK;
+				int target = (header >> 2) & 3;
 
 				index++;
 				if(type == MODE_UNRELIABLE)
@@ -210,25 +208,27 @@ namespace UNet
 				}
 				else if(type == MODE_RELIABLE_SEQUENCED)
 				{
-					int id = dataBuffer[index] << 8 | dataBuffer[index + 1];
-					index += 2;
-					int sequence = dataBuffer[index];
-					index++;
-					int targetIndex = index;
-					index += GetTargetHeaderSize(target);
-
-					int len = dataBuffer[index];
-					index++;
-
-					if(ImTarget(target, dataBuffer, targetIndex))
+					if(ImTarget(target, dataBuffer, index + 3))
 					{
+						int id = dataBuffer[index] << 8 | dataBuffer[index + 1];
+						index += 2;
+						int sequence = dataBuffer[index];
+						index++;
+						index += GetTargetHeaderSize(target);
+
+						int len = dataBuffer[index];
+						index++;
+
 						socket.OnReceiveReliableSequenced(connection, id, sequence, dataBuffer, index, len);
+						index += len;
 					}
-					else if(type == MODE_RELIABLE_SEQUENCED)
+					else
 					{
-						socket.MarkReliableSequence(connection, id, sequence);
+						index += 3;
+						index += GetTargetHeaderSize(target);
+						index += dataBuffer[index];
+						index += 1;
 					}
-					index += len;
 				}
 				else if(type == RELIABLE_ACK)
 				{
@@ -247,36 +247,6 @@ namespace UNet
 						index += 4;
 						index += GetTargetHeaderSize(target);
 					}
-				}
-				else if(type == CONNECTION_REGISTRATION)
-				{
-					if(ImTarget(target, dataBuffer, index))
-					{
-						socket.ConnectionAck(connection);
-						if((connectionsMask & (1u << connection)) == 0)
-						{
-							connectionsMask |= 1u << connection;
-							if(isInitComplete && eventListeners != null)
-							{
-								int owner = allConnections[connection].owner;
-								for(var i = 0; i < eventListenersCount; i++)
-								{
-									var listener = eventListeners[i];
-									listener.SetProgramVariable("OnUNetConnected_playerId", owner);
-									listener.SendCustomEvent("OnUNetConnected");
-								}
-							}
-						}
-					}
-					index += GetTargetHeaderSize(target);
-				}
-				else if(type == CONNECTION_ACK)
-				{
-					if(ImTarget(target, dataBuffer, index))
-					{
-						socket.ConnectionConfirmed(connection);
-					}
-					index += GetTargetHeaderSize(target);
 				}
 			}
 		}
@@ -307,18 +277,29 @@ namespace UNet
 					socket.SetProgramVariable("manager", this);
 					socket.Init();
 
-					socket.ConnectionRegAll(connectedBeforeInit);
-					connectedBeforeInit = 0;
-
 					hasLocal = true;
 				}
 				else
 				{
-					if(hasLocal) socket.ConnectionReg(index);
-					else connectedBeforeInit |= 1u << index;
+					connectionsMask |= 1u << index;
 				}
 
-				if(!isInitComplete && hasLocal && hasMaster) Init();
+				if(isInitComplete)
+				{
+					if(eventListeners != null)
+					{
+						for(var i = 0; i < eventListenersCount; i++)
+						{
+							var listener = eventListeners[i];
+							listener.SetProgramVariable("OnUNetConnected_playerId", playerId);
+							listener.SendCustomEvent("OnUNetConnected");
+						}
+					}
+				}
+				else
+				{
+					if(hasLocal && hasMaster) Init();
+				}
 			}
 		}
 
@@ -412,7 +393,7 @@ namespace UNet
 				return socket.SendTarget(mode, data, dataLength, targetPlayerIds[0]);
 			}
 			int len = targetPlayerIds.Length;
-			int[] indices = new int[len];
+			uint targetsMask = 0;
 			for(var i = 0; i < len; i++)
 			{
 				int targetConnection = targetPlayerIds[i];
@@ -426,9 +407,9 @@ namespace UNet
 					}
 				}
 				if(index < 0) return false;
-				indices[i] = index;
+				targetsMask = 1u << index;
 			}
-			return socket.SendTargets(mode, data, dataLength, indices);
+			return socket.SendTargets(mode, data, dataLength, targetsMask);
 		}
 
 		private void Init()
@@ -445,9 +426,9 @@ namespace UNet
 				int localId = Networking.LocalPlayer.playerId;
 				for(var i = 0; i < totalConnectionsCount; i++)
 				{
-					if((connectionsMask & (1u << i)) != 0)
+					int owner = allConnections[i].owner;
+					if(owner >= 0 && owner != localId)
 					{
-						int owner = allConnections[i].owner;
 						for(var j = 0; j < eventListenersCount; j++)
 						{
 							var listener = eventListeners[j];
