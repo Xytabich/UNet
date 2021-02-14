@@ -19,7 +19,6 @@ Table of contents:
   - [NetworkInterface](#NetworkInterface)
 - [Serialization](#Serialization)
 - [Setup](#Setup)
-- [Known Issues](#Issues)
 - [Contact](#Contact)
 
 ## Common info
@@ -183,9 +182,6 @@ Information about type sizes and other additional descriptions can be found in t
 - Add event listeners via NetworkInterface
 - Wait for the `OnUNetInit` event and start sending your messages.
 - When a message is received, `OnUNetReceived` is called on all event listeners.
-
-## <a name="Issues"></a> Known Issues
-The first packets may be lost when sending reliable sequential messages. This happens if several messages are sent in a row, and the message with the lowest number was not received first. By the mechanics of message delivery, numbers less than the current one are ignored.
 
 ## <a name="Contact"></a> Contact
 If you have any questions, suggestions, fixes or bug reports, you can write in Discord `Xytabich#5684`
