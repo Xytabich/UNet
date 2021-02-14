@@ -157,6 +157,8 @@ namespace UNet
 
 		public void HandlePacket(int connection, byte[] dataBuffer, int dataBufferLength)
 		{
+			if(!isInitComplete) return;
+
 			int index = 0;
 			while(index < dataBufferLength)
 			{
@@ -254,6 +256,7 @@ namespace UNet
 		public void PrepareSendStream(int index)
 		{
 			if(!isInitComplete) return;
+			
 			for(var i = 0; i < eventListenersCount; i++)
 			{
 				eventListeners[i].SendCustomEvent("OnUNetPrepareSend");

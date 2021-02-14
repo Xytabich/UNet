@@ -272,6 +272,7 @@ namespace UNet
 
 		private byte[] FillMessageData(byte[][] targetBuffer, int targetIndex, byte[] data, int dataLen, int dataIndex)
 		{
+			Debug.Assert(data.Length + dataIndex + 1 > MAX_PACKET_SIZE, "Input buffer is too long");
 			var buffer = targetBuffer[targetIndex];
 			if(buffer == null)
 			{
@@ -409,7 +410,7 @@ namespace UNet
 								}
 								else sendSequenced = false;
 							}
-							
+
 							sendReliable = sendSequenced;
 						}
 
