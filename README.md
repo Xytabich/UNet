@@ -59,8 +59,8 @@ Each network tick, messages are packed into a packet (up to 144 bytes) and sent.
 ### <a name="SystemProblems"></a> System problems:
 - Slowness ... This is the main problem, the packet sending rate is 200ms (but actually more).
 Considering that the maximum packet size is 144 bytes, you can get a speed of about 720 bytes/s (or 5.76 kbps).
-- Packet loss (that's why I created a network system). Since the data is synchronized over an unreliable channel, data may be lost (in my tests, the loss was about 60%), which greatly reduces the transfer rate.
-- Delivery speed is the time it takes for a message to reach other players. In my tests, this time was about 400ms.
+- Packet loss (that's why I created a network system). Since the data is being synchronized over an unreliable channel, data may be lost. In my tests with high loads, the loss was about 60%, which significantly reduces the transfer rate. But in lightly loaded systems, losses are practically absent.
+- Delivery speed is the time it takes for a message to reach other players. In my tests, latency time started at 500ms and RTT was 1500-2000ms.
 
 ## <a name="SystemInfo"></a> System info
 The system consists of three main components and one auxiliary:
