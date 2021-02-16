@@ -23,6 +23,7 @@ Table of contents:
 
 ## Common info
 Supports up to 31 connections (including own).
+
 Test world: https://www.vrchat.com/home/launch?worldId=wrld_dbb598b1-5a70-4b03-8bd0-fa620e3788ca
 
 ### <a name="SupportedDeliveryMethods"></a> Supported delivery methods:
