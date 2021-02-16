@@ -20,7 +20,7 @@ namespace UNet
 
 		private const uint FLOAT_SIGN_BIT = 0x80000000;
 		private const uint FLOAT_EXP_MASK = 0x7F800000;
-		private const uint FLOAT_COEF_MASK = 0x007FFFFF;
+		private const uint FLOAT_FRAC_MASK = 0x007FFFFF;
 
 		#region common types
 		/// <summary>
@@ -198,7 +198,7 @@ namespace UNet
 			uint tmp = 0;
 			if(float.IsNaN(value))
 			{
-				tmp = FLOAT_EXP_MASK | FLOAT_COEF_MASK;
+				tmp = FLOAT_EXP_MASK | FLOAT_FRAC_MASK;
 			}
 			else if(float.IsInfinity(value))
 			{
@@ -213,21 +213,33 @@ namespace UNet
 					tmp |= FLOAT_SIGN_BIT;
 				}
 
-				int exp = 127;
-				while(value > 2f)
+				int exp = 0;
+				bool normal = true;
+				while(value >= 2f)
 				{
 					value *= 0.5f;
 					exp++;
 				}
 				while(value < 1f)
 				{
+					if(exp == -126)
+					{
+						normal = false;
+						break;
+					}
 					value *= 2f;
 					exp--;
-					if(exp <= 0) break;
 				}
 
+				if(normal)
+				{
+					value -= 1f;
+					exp += 127;
+				}
+				else exp = 0;
+
 				tmp |= Convert.ToUInt32(exp << 23) & FLOAT_EXP_MASK;
-				tmp |= Convert.ToUInt32(value * (2 << (21 + (exp > 0 ? 1 : 0)))) & FLOAT_COEF_MASK;
+				tmp |= Convert.ToUInt32(value * (2 << 22)) & FLOAT_FRAC_MASK;
 			}
 			return WriteUInt32(tmp, buffer, index);
 		}

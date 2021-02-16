@@ -393,7 +393,7 @@ namespace UNet
 					uint mask = 1u << reliableSendIndex;
 					if((reliableExpectMask & mask) != 0)
 					{
-						bool sendReliable = true;
+						bool allowSend = true;
 
 						int index = (reliableBufferIndex + reliableSendIndex) % RELIABLE_BUFFER_SIZE;
 						var buffer = reliableBuffer[index];
@@ -411,14 +411,20 @@ namespace UNet
 								else sendSequenced = false;
 							}
 
-							sendReliable = sendSequenced;
+							allowSend = sendSequenced;
 						}
 
-						if(sendReliable && (reliableAttemptsMask & mask) == 0)
+						if(allowSend)
 						{
-							TryAddToBuffer(buffer, reliableLengths[index]);
+							if((reliableAttemptsMask & mask) == 0 && TryAddToBuffer(buffer, reliableLengths[index]))
+							{
+								reliableAttemptsMask |= mask;
+							}
 						}
-						reliableAttemptsMask |= mask;
+						else
+						{
+							reliableAttemptsMask |= mask;
+						}
 					}
 					reliableSendIndex++;
 				}
