@@ -20,7 +20,7 @@ namespace UNet
 
 		private const uint FLOAT_SIGN_BIT = 0x80000000;
 		private const uint FLOAT_EXP_MASK = 0x7F800000;
-		private const uint FLOAT_COEF_MASK = 0x007FFFFF;
+		private const uint FLOAT_FRAC_MASK = 0x007FFFFF;
 
 		private int[] decimalBuffer = new int[4];
 		private byte[] guidBuffer = new byte[16];
@@ -188,17 +188,30 @@ namespace UNet
 			uint value = ReadUInt32(buffer, index);
 			if(value == 0 || value == FLOAT_SIGN_BIT) return 0f;
 
-			if((value & FLOAT_EXP_MASK) == FLOAT_EXP_MASK)
+			int exp = (int)((value & FLOAT_EXP_MASK) >> 23);
+			int frac = (int)(value & FLOAT_FRAC_MASK);
+			bool negate = (value & FLOAT_SIGN_BIT) == FLOAT_SIGN_BIT;
+			if(exp == 0xFF)
 			{
-				if((value & FLOAT_COEF_MASK) == FLOAT_COEF_MASK) return float.NaN;
-				return (value & FLOAT_SIGN_BIT) == FLOAT_SIGN_BIT ? float.NegativeInfinity : float.PositiveInfinity;
+				if(frac == 0)
+				{
+					return negate ? float.NegativeInfinity : float.PositiveInfinity;
+				}
+				return float.NaN;
 			}
 
-			int exp = (int)((value & FLOAT_EXP_MASK) >> 23);
-			float coeff = (float)(value & FLOAT_COEF_MASK) / (2 << (21 + (exp > 0 ? 1 : 0)));
-			if(exp > 0) coeff += 1f;
-			float result = coeff * Mathf.Pow(2, exp - 127);
-			if((value & FLOAT_SIGN_BIT) == FLOAT_SIGN_BIT) result = -result;
+			bool normal = exp != 0x00;
+			if(normal) exp -= 127;
+			else exp = -126;
+
+			float result = frac / (float)(2 << 22);
+			if(normal) result += 1f;
+
+			Debug.Log(frac + ":" + exp);
+			Debug.Log(result + ":" + Mathf.Pow(2, exp));
+
+			result *= Mathf.Pow(2, exp);
+			if(negate) result = -result;
 			return result;
 		}
 		#endregion
