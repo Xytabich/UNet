@@ -24,7 +24,7 @@ Table of contents:
 ## Common info
 Supports up to 31 connections (including own).
 
-Test world (the scene will be available later): https://www.vrchat.com/home/launch?worldId=wrld_dbb598b1-5a70-4b03-8bd0-fa620e3788ca
+Test world (source assets are available in examples): https://www.vrchat.com/home/launch?worldId=wrld_dbb598b1-5a70-4b03-8bd0-fa620e3788ca
 
 ### <a name="SupportedDeliveryMethods"></a> Supported delivery methods:
 - Unreliable - simplest mode, low network load, but some data may be lost. It can be used to transfer frequently updated data, for example, the position of an object.
