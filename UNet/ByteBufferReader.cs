@@ -207,9 +207,6 @@ namespace UNet
 			float result = frac / (float)(2 << 22);
 			if(normal) result += 1f;
 
-			Debug.Log(frac + ":" + exp);
-			Debug.Log(result + ":" + Mathf.Pow(2, exp));
-
 			result *= Mathf.Pow(2, exp);
 			if(negate) result = -result;
 			return result;

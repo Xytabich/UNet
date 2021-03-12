@@ -15,9 +15,7 @@ namespace UNet
 		[UdonSynced]
 		private string dataPart2 = "";
 
-		public readonly int connectionIndex;
-		public readonly int owner = -1;
-
+		private int connectionIndex = -1;
 		private NetworkManager manager = null;
 
 		private int dataBufferLength;
@@ -25,27 +23,28 @@ namespace UNet
 
 		public override void OnPreSerialization()
 		{
-			if(manager == null || owner < 0) return;
+			if(connectionIndex < 0) return;
 
-			manager.PrepareSendStream(connectionIndex);
-
-			if(dataBufferLength < 1)
+			if(manager.PrepareSendStream(connectionIndex))
 			{
-				dataPart1 = "";
-				dataPart2 = "";
-				return;
-			}
+				if(dataBufferLength < 1)
+				{
+					dataPart1 = "";
+					dataPart2 = "";
+					return;
+				}
 
-			string data = Convert.ToBase64String(dataBuffer, 0, dataBufferLength);
-			int splitIndex = data.Length / 2;
-			// The data is split into 2 parts because it allows more data to pass through the network than using one long string
-			dataPart1 = data.Substring(0, splitIndex);
-			dataPart2 = data.Substring(splitIndex);
+				string data = Convert.ToBase64String(dataBuffer, 0, dataBufferLength);
+				int splitIndex = data.Length / 2;
+				// The data is split into 2 parts because it allows more data to pass through the network than using one long string
+				dataPart1 = data.Substring(0, splitIndex);
+				dataPart2 = data.Substring(splitIndex);
+			}
 		}
 
 		public override void OnOwnershipTransferred()
 		{
-			if(manager == null) return;
+			if(connectionIndex < 0) return;
 
 			var player = Networking.GetOwner(gameObject);
 			if(!player.isMaster)
@@ -56,7 +55,7 @@ namespace UNet
 
 		public override void OnDeserialization()
 		{
-			if(manager == null) return;
+			if(connectionIndex < 0) return;
 
 			string data = dataPart1 + dataPart2;
 			dataPart1 = "";

@@ -114,7 +114,7 @@ namespace UNet
 		/// Sends message to other clients.
 		/// </summary>
 		/// <param name="mode">Send mode: <see cref="NetworkInterface.MODE_UNRELIABLE"/>, <see cref="NetworkInterface.MODE_RELIABLE"/>, <see cref="NetworkInterface.MODE_RELIABLE_SEQUENCED"/></param>
-		/// <param name="data">Array of data bytes, the length array must be less than or equals to <see cref="NetworkInterface.GetMaxDataLength"/></param>
+		/// <param name="data">Array of data bytes</param>
 		/// <param name="dataLength">The length of data, must be less than or equals to <see cref="NetworkInterface.GetMaxDataLength"/></param>
 		/// <returns>True if the message has been added to the send buffer.</returns>
 		public bool SendAll(int mode, byte[] data, int dataLength)
@@ -126,7 +126,7 @@ namespace UNet
 		/// Sends message to master client only.
 		/// </summary>
 		/// <param name="mode">Send mode: <see cref="NetworkInterface.MODE_UNRELIABLE"/>, <see cref="NetworkInterface.MODE_RELIABLE"/>, <see cref="NetworkInterface.MODE_RELIABLE_SEQUENCED"/></param>
-		/// <param name="data">Array of data bytes, the length array must be less than or equals to <see cref="NetworkInterface.GetMaxDataLength"/></param>
+		/// <param name="data">Array of data bytes</param>
 		/// <param name="dataLength">The length of data, must be less than or equals to <see cref="NetworkInterface.GetMaxDataLength"/></param>
 		/// <returns>True if the message has been added to the send buffer.</returns>
 		public bool SendMaster(int mode, byte[] data, int dataLength)
@@ -138,7 +138,7 @@ namespace UNet
 		/// Sends message to target client only.
 		/// </summary>
 		/// <param name="mode">Send mode: <see cref="NetworkInterface.MODE_UNRELIABLE"/>, <see cref="NetworkInterface.MODE_RELIABLE"/>, <see cref="NetworkInterface.MODE_RELIABLE_SEQUENCED"/></param>
-		/// <param name="data">Array of data bytes, the length array must be less than or equals to <see cref="NetworkInterface.GetMaxDataLength"/></param>
+		/// <param name="data">Array of data bytes</param>
 		/// <param name="dataLength">The length of data, must be less than or equals to <see cref="NetworkInterface.GetMaxDataLength"/></param>
 		/// <param name="targetPlayerId">Target client <see cref="VRCPlayerApi.playerId"/></param>
 		/// <returns>True if the message has been added to the send buffer.</returns>
@@ -151,7 +151,7 @@ namespace UNet
 		/// Sends message to target clients only.
 		/// </summary>
 		/// <param name="mode">Send mode: <see cref="NetworkInterface.MODE_UNRELIABLE"/>, <see cref="NetworkInterface.MODE_RELIABLE"/>, <see cref="NetworkInterface.MODE_RELIABLE_SEQUENCED"/></param>
-		/// <param name="data">Array of data bytes, the length array must be less than or equals to <see cref="NetworkInterface.GetMaxDataLength"/></param>
+		/// <param name="data">Array of data bytes</param>
 		/// <param name="dataLength">The length of data, must be less than or equals to <see cref="NetworkInterface.GetMaxDataLength"/></param>
 		/// <param name="targetPlayerIds">Target clients <see cref="VRCPlayerApi.playerId"/></param>
 		/// <returns>True if the message has been added to the send buffer.</returns>
