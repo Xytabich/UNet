@@ -263,7 +263,6 @@ namespace UNet
 				if(playerId == Networking.LocalPlayer.playerId)
 				{
 					localConnectionIndex = index;
-					connection.SetProgramVariable("socket", socket);
 					socket.SetProgramVariable("connection", connection);
 					socket.SetProgramVariable("manager", this);
 					socket.Init(totalConnectionsCount, connectionsMaskBytesCount);
