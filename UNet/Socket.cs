@@ -43,6 +43,8 @@ namespace UNet
 		private NetworkManager manager = null;
 		private Connection connection = null;
 
+		private int connectionsMaskBytesCount;
+
 		#region reliable send
 		private int reliableStartId = 0;
 		private uint reliableExpectMask = 0;
@@ -91,9 +93,9 @@ namespace UNet
 
 		private byte[] tmpDataBuffer;
 
-		public void Init()
+		public void Init(int connectionsCount, int connectionsMaskBytesCount)
 		{
-			int connectionsCount = manager.totalConnectionsCount;
+			this.connectionsMaskBytesCount = connectionsMaskBytesCount;
 			dataBufferLength = 0;
 			dataBuffer = new byte[MAX_PACKET_SIZE];
 			unreliableBuffer = new byte[UNRELIABLE_BUFFER_SIZE][];
@@ -178,8 +180,7 @@ namespace UNet
 
 		public bool SendTargets(int mode, byte[] data, int count, uint connectionsMask)
 		{
-			int maskSize = manager.connectionsMaskBytesCount;
-			byte[] buffer = TryAddModeData(mode, connectionsMask, 1 + maskSize, data, count);
+			byte[] buffer = TryAddModeData(mode, connectionsMask, 1 + connectionsMaskBytesCount, data, count);
 			if(buffer == null) return false;
 			buffer[0] = (byte)(mode | TARGET_MULTIPLE);
 
@@ -188,15 +189,15 @@ namespace UNet
 			if(mode == MODE_RELIABLE_SEQUENCED) targetIndex += 3;
 
 			buffer[targetIndex] = (byte)(connectionsMask & 255);
-			if(maskSize > 1)
+			if(connectionsMaskBytesCount > 1)
 			{
 				targetIndex++;
 				buffer[targetIndex] = (byte)(connectionsMask >> 8 & 255);
-				if(maskSize > 2)
+				if(connectionsMaskBytesCount > 2)
 				{
 					targetIndex++;
 					buffer[targetIndex] = (byte)(connectionsMask >> 16 & 255);
-					if(maskSize > 3)
+					if(connectionsMaskBytesCount > 3)
 					{
 						targetIndex++;
 						buffer[targetIndex] = (byte)(connectionsMask >> 24 & 255);
@@ -272,7 +273,6 @@ namespace UNet
 
 		private byte[] FillMessageData(byte[][] targetBuffer, int targetIndex, byte[] data, int dataLen, int dataIndex)
 		{
-			Debug.Assert(data.Length + dataIndex + 1 > MAX_PACKET_SIZE, "Input buffer is too long");
 			var buffer = targetBuffer[targetIndex];
 			if(buffer == null)
 			{
@@ -280,7 +280,7 @@ namespace UNet
 				targetBuffer[targetIndex] = buffer;
 			}
 			buffer[dataIndex] = (byte)dataLen;
-			data.CopyTo(buffer, dataIndex + 1);
+			Array.Copy(data, 0, buffer, dataIndex + 1, dataLen);
 			return buffer;
 		}
 		#endregion
@@ -438,10 +438,7 @@ namespace UNet
 		private bool TryAddToBuffer(byte[] data, int count)
 		{
 			if(dataBufferLength + count >= MAX_PACKET_SIZE) return false;
-			for(var i = 0; i < count; i++)
-			{
-				dataBuffer[dataBufferLength + i] = data[i];
-			}
+			Array.Copy(data, 0, dataBuffer, dataBufferLength, count);
 			dataBufferLength += count;
 			return true;
 		}
@@ -485,8 +482,9 @@ namespace UNet
 				}
 				else
 				{
-					// bad way but there is no better method for copying arrays
-					connectionBuffer[sequence] = Convert.FromBase64String(Convert.ToBase64String(dataBuffer, index, len));
+					var buffer = new byte[len];
+					Array.Copy(dataBuffer, index, buffer, 0, len);
+					connectionBuffer[sequence] = buffer;
 				}
 
 				receiveSequencedStartIndices[connectionIndex] = sequenceStartIndex;

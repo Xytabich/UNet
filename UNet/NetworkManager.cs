@@ -1,4 +1,5 @@
-﻿using UdonSharp;
+﻿using System;
+using UdonSharp;
 using UnityEngine;
 using VRC.SDKBase;
 
@@ -24,14 +25,18 @@ namespace UNet
 		[UdonSynced]
 		private int masterConnection = -1;
 
+		[HideInInspector]
 		public uint connectionsMask = 0;
+		[HideInInspector]
 		public int activeConnectionsCount = 0;
-		public readonly int totalConnectionsCount;
-		public readonly int connectionsMaskBytesCount;
 
-		public readonly int localConnectionIndex;
+		private int localConnectionIndex;
+
+		private int totalConnectionsCount;
+		private int connectionsMaskBytesCount;
 
 		private Connection[] allConnections;
+		private int[] connectionsOwners;
 
 		private int masterId = -1;
 		private Socket socket;
@@ -57,11 +62,14 @@ namespace UNet
 
 			socket = gameObject.GetComponentInChildren<Socket>();
 			allConnections = gameObject.GetComponentsInChildren<Connection>();
-			SetProgramVariable("totalConnectionsCount", allConnections.Length);
-			SetProgramVariable("connectionsMaskBytesCount", (totalConnectionsCount - 1) / 8 + 1);
+			totalConnectionsCount = allConnections.Length;
+			connectionsMaskBytesCount = (totalConnectionsCount - 1) / 8 + 1;
 
+			connectionsOwners = new int[totalConnectionsCount];
 			for(var i = 0; i < totalConnectionsCount; i++)
 			{
+				connectionsOwners[i] = -1;
+
 				var connection = allConnections[i];
 				connection.SetProgramVariable("connectionIndex", i);
 				connection.SetProgramVariable("manager", this);
@@ -81,14 +89,7 @@ namespace UNet
 				}
 				else
 				{
-					for(var i = 0; i < allConnections.Length; i++)
-					{
-						if(allConnections[i].owner < 0)
-						{
-							index = i;
-							break;
-						}
-					}
+					index = Array.IndexOf(connectionsOwners, -1);
 				}
 				if(index < 0) Debug.LogError("UNet does not have an unoccupied connection for a new player");
 				else
@@ -102,17 +103,10 @@ namespace UNet
 		public override void OnPlayerLeft(VRCPlayerApi player)
 		{
 			int id = player.playerId;
-			for(var i = 0; i < totalConnectionsCount; i++)
-			{
-				var connection = allConnections[i];
-				if(connection.owner == id)
-				{
-					OnConnectionRelease(i);
-					break;
-				}
-			}
+			int index = Array.IndexOf(connectionsOwners, id);
+			if(index >= 0) OnConnectionRelease(index);
 
-			if(player.playerId == masterId)
+			if(id == masterId)
 			{
 				var playersList = new VRCPlayerApi[VRCPlayerApi.GetPlayerCount()];
 				foreach(var playerInfo in VRCPlayerApi.GetPlayers(playersList))
@@ -126,14 +120,7 @@ namespace UNet
 						}
 						else
 						{
-							foreach(var connection in allConnections)
-							{
-								if(connection.owner == masterId)
-								{
-									masterConnection = connection.connectionIndex;
-									break;
-								}
-							}
+							masterConnection = Array.IndexOf(connectionsOwners, masterId);
 						}
 						break;
 					}
@@ -152,7 +139,7 @@ namespace UNet
 
 		public bool IsMasterConnection(int index)
 		{
-			return allConnections[index].owner == masterId;
+			return connectionsOwners[index] == masterId;
 		}
 
 		public void HandlePacket(int connection, byte[] dataBuffer, int dataBufferLength)
@@ -253,32 +240,33 @@ namespace UNet
 			}
 		}
 
-		public void PrepareSendStream(int index)
+		public bool PrepareSendStream(int index)
 		{
-			if(!isInitComplete) return;
-			
+			if(!isInitComplete || connectionsOwners[index] < 0) return false;
+
 			for(var i = 0; i < eventListenersCount; i++)
 			{
 				eventListeners[i].SendCustomEvent("OnUNetPrepareSend");
 			}
 			socket.PrepareSendStream();
+			return true;
 		}
 
 		public void OnOwnerReceived(int index, int playerId)
 		{
 			var connection = allConnections[index];
-			if(connection.owner < 0)
+			if(connectionsOwners[index] < 0)
 			{
-				connection.SetProgramVariable("owner", playerId);
+				connectionsOwners[index] = playerId;
 				activeConnectionsCount++;
 
 				if(playerId == Networking.LocalPlayer.playerId)
 				{
-					SetProgramVariable("localConnectionIndex", connection.connectionIndex);
+					localConnectionIndex = index;
 					connection.SetProgramVariable("socket", socket);
 					socket.SetProgramVariable("connection", connection);
 					socket.SetProgramVariable("manager", this);
-					socket.Init();
+					socket.Init(totalConnectionsCount, connectionsMaskBytesCount);
 
 					hasLocal = true;
 				}
@@ -310,7 +298,7 @@ namespace UNet
 		{
 			if(eventListeners != null)
 			{
-				int playerId = allConnections[connectionIndex].owner;
+				int playerId = connectionsOwners[connectionIndex];
 				for(var i = 0; i < eventListenersCount; i++)
 				{
 					var listener = eventListeners[i];
@@ -342,21 +330,13 @@ namespace UNet
 
 		public void RemoveEventsListener(UdonSharpBehaviour listener)
 		{
-			bool found = false;
-			for(var i = 0; i < eventListenersCount; i++)
+			int index = Array.IndexOf(eventListeners, listener);
+			if(index >= 0)
 			{
-				if(found)
-				{
-					eventListeners[i - 1] = eventListeners[i];
-					eventListeners[i] = null;
-				}
-				else if(eventListeners[i] == listener)
-				{
-					eventListeners[i] = null;
-					found = true;
-				}
+				eventListenersCount--;
+				Array.Copy(eventListeners, index + 1, eventListeners, index, eventListenersCount - index);
+				eventListeners[eventListenersCount] = null;
 			}
-			if(found) eventListenersCount--;
 		}
 
 		public bool SendAll(int mode, byte[] data, int dataLength)
@@ -374,15 +354,7 @@ namespace UNet
 		public bool SendTarget(int mode, byte[] data, int dataLength, int targetPlayerId)
 		{
 			if(activeConnectionsCount < 2) return true;
-			int index = -1;
-			for(var i = 0; i < totalConnectionsCount; i++)
-			{
-				if(allConnections[i].owner == targetPlayerId)
-				{
-					index = i;
-					break;
-				}
-			}
+			int index = Array.IndexOf(connectionsOwners, targetPlayerId);
 			if(index < 0) return false;
 			return socket.SendTarget(mode, data, dataLength, index);
 		}
@@ -395,20 +367,10 @@ namespace UNet
 			{
 				return socket.SendTarget(mode, data, dataLength, targetPlayerIds[0]);
 			}
-			int len = targetPlayerIds.Length;
 			uint targetsMask = 0;
-			for(var i = 0; i < len; i++)
+			foreach(var playerId in targetPlayerIds)
 			{
-				int targetConnection = targetPlayerIds[i];
-				int index = -1;
-				for(var j = 0; j < totalConnectionsCount; j++)
-				{
-					if(allConnections[j].owner == targetConnection)
-					{
-						index = j;
-						break;
-					}
-				}
+				int index = Array.IndexOf(connectionsOwners, playerId);
 				if(index < 0) return false;
 				targetsMask = 1u << index;
 			}
@@ -418,7 +380,6 @@ namespace UNet
 		private void Init()
 		{
 			isInitComplete = true;
-
 			if(eventListeners != null && eventListenersCount > 0)
 			{
 				for(var i = 0; i < eventListenersCount; i++)
@@ -429,7 +390,7 @@ namespace UNet
 				int localId = Networking.LocalPlayer.playerId;
 				for(var i = 0; i < totalConnectionsCount; i++)
 				{
-					int owner = allConnections[i].owner;
+					int owner = connectionsOwners[i];
 					if(owner >= 0 && owner != localId)
 					{
 						for(var j = 0; j < eventListenersCount; j++)
@@ -446,8 +407,8 @@ namespace UNet
 		private void OnConnectionRelease(int index)
 		{
 			var connection = allConnections[index];
-			int owner = connection.owner;
-			connection.SetProgramVariable("owner", -1);
+			int owner = connectionsOwners[index];
+			connectionsOwners[index] = -1;
 			connectionsMask &= (1u << index) ^ 0xFFFFFFFF;
 			socket.OnConnectionRelease(index);
 
