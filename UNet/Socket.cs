@@ -9,475 +9,491 @@ namespace UNet
 	/// </summary>
 	public class Socket : UdonSharpBehaviour
 	{
-		private const byte MODE_UNRELIABLE = 0;
-		private const byte MODE_RELIABLE = 1;
-		private const byte MODE_RELIABLE_SEQUENCED = 2;
-		private const byte RELIABLE_ACK = 3;
+		private const byte TYPE_NORMAL = 0;
+		private const byte TYPE_SEQUENCED = 1;
+		private const byte TYPE_ACK = 2;
 
 		private const byte TARGET_ALL = 0;
 		private const byte TARGET_MASTER = 1 << 2;
 		private const byte TARGET_SINGLE = 2 << 2;
 		private const byte TARGET_MULTIPLE = 3 << 2;
 
-		private const byte MSG_TYPE_MASK = 3;
+		private const byte MSG_TARGET_MASK = 3 << 2;
+		private const int LENGTH_BYTES_COUNT = 2;
 
-		private const byte RELIABLE_ACK_MSG_HEADER = RELIABLE_ACK | TARGET_SINGLE;
+		private const byte ACK_MSG_HEADER = TYPE_ACK | TARGET_SINGLE;
 
-		private const int MAX_PACKET_SIZE = 144;
-
-		private const uint MASTER_EXPECT_MASK = 0xFFFFFFFF;
+		private const int MAX_MESSAGE_SIZE = 512;
+		private const int MAX_PACKET_SIZE = 2048;
 
 		// 2 bytes are used, because the messages can be targeted.
 		// If many messages are sent to only one target, the rest may have an error when calculating the message id.
 		// Also in this case it is sometimes necessary to send a message to all clients.
-		private const int RELIABLE_IDS_COUNT = 65536;
-		private const int RELIABLE_IDS_COUNT_HALF = 32768;
-		// Sequenced messages have a smaller counter because they are awaiting confirmation from all clients.
-		private const int RELIABLE_SEQUENCES_COUNT = 256;
+		private const int IDS_COUNT = 65536;
+		private const int IDS_COUNT_HALF = 32768;
 
-		private const int RELIABLE_BUFFER_SIZE = 16;
-		private const int UNRELIABLE_BUFFER_SIZE = 32;
+		/// <remarks>The buffer size depends on the size of the masks (or more precisely, the number of bits in the masks)</remarks>
+		private const int BUFFER_SIZE = 16;
 
-		private const int RELIABLE_ACK_DATA_LENGTH = 6;//header + id(2 bytes) + mask(2 bytes) + connection
+		private const int ACK_DATA_LENGTH = 6;//header + id(2 bytes) + mask(2 bytes) + connection
 
 		private NetworkManager manager = null;
 		private Connection connection = null;
 
 		private int connectionsMaskBytesCount;
 
-		#region reliable send
-		private int reliableStartId = 0;
-		private uint reliableExpectMask = 0;
-		private bool updateReliable = false;
-
-		private uint reliableAttemptsMask = 0;
-		private int reliableBufferIndex = 0;
-		private int reliableBufferedCount = 0;
-
-		private uint[] reliableExpectedAcks;
-		private byte[][] reliableBuffer;
-		private int[] reliableLengths;
+		#region QueuedList<MessageSend> sendMessages;
+		/// class MessageSend
+		/// {
+		/// 	public ulong expectedMask;
+		/// 	public byte[] data;
+		/// 	public int sequenceId;
+		/// }
+		private int sendMessages_index = 0;
+		private int sendMessages_count = 0;
+		private ulong[] sendMessages_values_expectedMask;
+		private byte[][] sendMessages_values_data;
+		private int[] sendMessages_values_sequenceId;
 		#endregion
 
-		#region reliable sequenced
-		private int reliableSequenceStartIndex = 0;
-		private uint reliableSequenceTargets = 0;
+		#region OtherConnection[] otherConnections;
+		/// class OtherConnection
+		/// {
+		/// 	public int ackStartId;
+		/// 	public uint ackMessagesMask;
+		/// 	public int receiveStartId;
+		/// 	public uint receiveMessagesMask;
+		/// 	public int sequenceStartIndex;
+		/// 	public MessageInfo[] sequenceQueue;
+		/// 
+		/// 	struct MessageInfo
+		/// 	{
+		/// 		public int id;
+		/// 		public byte[] data;
+		/// 	}
+		/// }
+		private int[] otherConnections_ackStartId;
+		private uint[] otherConnections_ackMessagesMask;
+		private int[] otherConnections_receiveStartId;
+		private uint[] otherConnections_receiveMessagesMask;
+		private int[] otherConnections_sequenceStartIndex;
+		private int[][] otherConnections_sequenceQueue_id;
+		private byte[][][] otherConnections_sequenceQueue_data;
 		#endregion
 
-		#region reliable ack
-		private int[] sendAckStartIds;
-		private uint[] sendAckMasks;
+		#region send
+		private int messageStartId = 0;
+		private uint messagesToSend = 0;
+		private uint sendAttemptsMask = 0;
+
+		private int sequenceCounter = 0;
+		private ulong lastSequenceGroup = 0ul;
 		#endregion
 
-		#region reliable sequenced receive
-		private int[] receiveSequencedStartIndices;
-		private byte[][][] receiveSequencedBuffer;
-		#endregion
+		private byte[] packetFormationBuffer;
+		private byte[] sendBufferReference;
 
-		#region reliable receive
-		private int[] receivedReliableStartIds;
-		private uint[] receivedReliableMasks;
-		#endregion
-
-		#region unreliable send
-		private int unreliableBufferIndex = 0;
-		private int unreliableBufferedCount = 0;
-		private byte[][] unreliableBuffer;
-		private int[] unreliableLengths;
-		#endregion
-
-		#region connection variables cache
-		private int dataBufferLength;
-		private byte[] dataBuffer;
-		#endregion
-
-		private byte[] tmpDataBuffer;
-
-		public void Init(int connectionsCount, int connectionsMaskBytesCount)
+		void FixedUpdate()
 		{
-			this.connectionsMaskBytesCount = connectionsMaskBytesCount;
-			dataBufferLength = 0;
-			dataBuffer = new byte[MAX_PACKET_SIZE];
-			unreliableBuffer = new byte[UNRELIABLE_BUFFER_SIZE][];
-			unreliableLengths = new int[UNRELIABLE_BUFFER_SIZE];
+			if(connection != null) connection.RequestSerialization();
+		}
 
-			reliableExpectedAcks = new uint[RELIABLE_BUFFER_SIZE];
-			reliableBuffer = new byte[RELIABLE_BUFFER_SIZE][];
-			reliableLengths = new int[RELIABLE_BUFFER_SIZE];
+		public void Init(Connection connection, NetworkManager manager, int connectionsCount)
+		{
+			this.connection = connection;
+			this.manager = manager;
+			this.connectionsMaskBytesCount = manager.connectionsMaskBytesCount;
 
-			sendAckStartIds = new int[connectionsCount];
-			sendAckMasks = new uint[connectionsCount];
-			tmpDataBuffer = new byte[RELIABLE_ACK_DATA_LENGTH];
+			packetFormationBuffer = new byte[MAX_PACKET_SIZE];
+			connection.SetDataBuffer(packetFormationBuffer);
 
-			receivedReliableMasks = new uint[connectionsCount];
-			receivedReliableStartIds = new int[connectionsCount];
+			sendMessages_values_expectedMask = new ulong[BUFFER_SIZE];
+			sendMessages_values_data = new byte[BUFFER_SIZE][];
+			sendMessages_values_sequenceId = new int[BUFFER_SIZE];
+
+			otherConnections_ackStartId = new int[connectionsCount];
+			otherConnections_ackMessagesMask = new uint[connectionsCount];
+
+			otherConnections_receiveMessagesMask = new uint[connectionsCount];
+			otherConnections_receiveStartId = new int[connectionsCount];
 			for(var i = 0; i < connectionsCount; i++)
 			{
-				receivedReliableStartIds[i] = -1;
+				otherConnections_receiveStartId[i] = -1;
 			}
 
-			receiveSequencedStartIndices = new int[connectionsCount];
-			receiveSequencedBuffer = new byte[connectionsCount][][];
+			otherConnections_sequenceStartIndex = new int[connectionsCount];
+			otherConnections_sequenceQueue_data = new byte[connectionsCount][][];
+			otherConnections_sequenceQueue_id = new int[connectionsCount][];
 			for(var i = 0; i < connectionsCount; i++)
 			{
-				receiveSequencedBuffer[i] = new byte[RELIABLE_BUFFER_SIZE][];
+				otherConnections_sequenceQueue_data[i] = new byte[BUFFER_SIZE][];
+				otherConnections_sequenceQueue_id[i] = new int[BUFFER_SIZE];
 			}
 		}
 
 		public void OnConnectionRelease(int connectionIndex)
 		{
-			uint mask = (1u << connectionIndex) ^ 0xFFFFFFFF;
-			for(var i = 0; i < RELIABLE_BUFFER_SIZE; i++)
+			ulong mask = ~(1ul << connectionIndex);
+			int index = sendMessages_index;
+			bool shiftMessages = false;
+			for(int i = 0; i < sendMessages_count; i++)
 			{
-				reliableExpectedAcks[i] &= mask;
-			}
-			updateReliable = true;
+				uint bit = 1u << index;
+				if((messagesToSend & bit) != 0)
+				{
+					var target = sendMessages_values_data[index][0] & MSG_TARGET_MASK;
+					if(target != TARGET_MASTER && (sendMessages_values_expectedMask[index] &= mask) == 0ul)
+					{
+						if(i == 0) shiftMessages = true;
+						messagesToSend &= ~bit;
+						sendMessages_values_data[index] = null;
 
-			receivedReliableStartIds[connectionIndex] = -1;
-			receivedReliableMasks[connectionIndex] = 0;
-			sendAckStartIds[connectionIndex] = 0;
-			sendAckMasks[connectionIndex] = 0;
-			receiveSequencedStartIndices[connectionIndex] = 0;
-			var buffer = receiveSequencedBuffer[connectionIndex];
-			for(var i = 0; i < RELIABLE_BUFFER_SIZE; i++)
+						manager.OnSendComplete(this, (messageStartId + i) % IDS_COUNT, target != TARGET_SINGLE);
+					}
+				}
+				index = (index + 1) % BUFFER_SIZE;
+			}
+			if(shiftMessages) ShiftMessages();
+			sendAttemptsMask &= messagesToSend;
+
+			otherConnections_ackStartId[connectionIndex] = 0;
+			otherConnections_ackMessagesMask[connectionIndex] = 0;
+			otherConnections_receiveStartId[connectionIndex] = -1;
+			otherConnections_receiveMessagesMask[connectionIndex] = 0;
+			otherConnections_sequenceStartIndex[connectionIndex] = 0;
+			var buffer = otherConnections_sequenceQueue_data[connectionIndex];
+			for(var i = 0; i < BUFFER_SIZE; i++)
 			{
 				buffer[i] = null;
 			}
 		}
 
+		public void OnMasterLeave()
+		{
+			if(lastSequenceGroup == 0ul) sequenceCounter = 0;
+
+			int index = sendMessages_index;
+			bool shiftMessages = false;
+			for(int i = 0; i < sendMessages_count; i++)
+			{
+				uint bit = 1u << index;
+				if((messagesToSend & bit) != 0)
+				{
+					if((sendMessages_values_data[index][0] & MSG_TARGET_MASK) == TARGET_MASTER)
+					{
+						if(i == 0) shiftMessages = true;
+						messagesToSend &= ~bit;
+						sendMessages_values_data[index] = null;
+						manager.OnSendComplete(this, (messageStartId + i) % IDS_COUNT, false);
+					}
+				}
+				index = (index + 1) % BUFFER_SIZE;
+			}
+			if(shiftMessages) ShiftMessages();
+			sendAttemptsMask &= messagesToSend;
+		}
+
+		public void CancelSend(int id)
+		{
+			int offset = id - messageStartId;
+			if(offset < 0 || offset >= sendMessages_count)
+			{
+				Debug.LogErrorFormat("Message ID {0} is out of range", id);
+				return;
+			}
+
+			int index = (sendMessages_index + offset) % BUFFER_SIZE;
+			uint bit = 1u << index;
+			if((messagesToSend & bit) != 0)
+			{
+				messagesToSend &= ~bit;
+				sendMessages_values_data[index] = null;
+				if(offset == 0) ShiftMessages();
+
+				manager.OnSendComplete(this, id, false);
+			}
+			else
+			{
+				Debug.LogErrorFormat("Unable to cancel sending because message with ID {0} has already been sent", id);
+			}
+		}
+
 		#region add to buffer
-		public bool SendAll(int mode, byte[] data, int count)
+		public int SendAll(bool sequenced, byte[] data, int count)
 		{
-			byte[] buffer = TryAddModeData(mode, manager.connectionsMask, 1, data, count);
-			if(buffer == null) return false;
-			buffer[0] = (byte)(mode | TARGET_ALL);
+			int result = TryAddMessage(sequenced, manager.connectionsMask, 1, data, count);
+			if(result < 0) return -1;
 
-			return true;
+			sendBufferReference[0] = (byte)((sequenced ? TYPE_SEQUENCED : TYPE_NORMAL) | TARGET_ALL);
+			return result;
 		}
 
-		public bool SendMaster(int mode, byte[] data, int count)
+		public int SendMaster(bool sequenced, byte[] data, int count)
 		{
-			byte[] buffer = TryAddModeData(mode, MASTER_EXPECT_MASK, 1, data, count);
-			if(buffer == null) return false;
-			buffer[0] = (byte)(mode | TARGET_MASTER);
+			int result = TryAddMessage(sequenced, 0, 1, data, count);
+			if(result < 0) return -1;
 
-			return true;
+			sendBufferReference[0] = (byte)((sequenced ? TYPE_SEQUENCED : TYPE_NORMAL) | TARGET_MASTER);
+			return result;
 		}
 
-		public bool SendTarget(int mode, byte[] data, int count, int targetConnection)
+		public int SendTarget(bool sequenced, byte[] data, int count, int targetConnection)
 		{
-			byte[] buffer = TryAddModeData(mode, 1u << targetConnection, 2, data, count);
-			if(buffer == null) return false;
-			buffer[0] = (byte)(mode | TARGET_SINGLE);
+			int result = TryAddMessage(sequenced, 1u << targetConnection, 2, data, count);
+			if(result < 0) return -1;
 
-			int targetIndex = 1;
-			if(mode == MODE_RELIABLE) targetIndex += 2;
-			if(mode == MODE_RELIABLE_SEQUENCED) targetIndex += 3;
-			buffer[targetIndex] = (byte)targetConnection;
-
-			return true;
+			sendBufferReference[0] = (byte)((sequenced ? TYPE_SEQUENCED : TYPE_NORMAL) | TARGET_SINGLE);
+			sendBufferReference[1] = (byte)targetConnection;
+			return result;
 		}
 
-		public bool SendTargets(int mode, byte[] data, int count, uint connectionsMask)
+		public int SendTargets(bool sequenced, byte[] data, int count, ulong connectionsMask)
 		{
-			byte[] buffer = TryAddModeData(mode, connectionsMask, 1 + connectionsMaskBytesCount, data, count);
-			if(buffer == null) return false;
-			buffer[0] = (byte)(mode | TARGET_MULTIPLE);
+			int result = TryAddMessage(sequenced, connectionsMask, 1 + connectionsMaskBytesCount, data, count);
+			if(result < 0) return -1;
 
-			int targetIndex = 1;
-			if(mode == MODE_RELIABLE) targetIndex += 2;
-			if(mode == MODE_RELIABLE_SEQUENCED) targetIndex += 3;
-
-			buffer[targetIndex] = (byte)(connectionsMask & 255);
-			if(connectionsMaskBytesCount > 1)
+			sendBufferReference[0] = (byte)((sequenced ? TYPE_SEQUENCED : TYPE_NORMAL) | TARGET_MULTIPLE);
+			for(int i = 0; i < connectionsMaskBytesCount; i++)
 			{
-				targetIndex++;
-				buffer[targetIndex] = (byte)(connectionsMask >> 8 & 255);
-				if(connectionsMaskBytesCount > 2)
-				{
-					targetIndex++;
-					buffer[targetIndex] = (byte)(connectionsMask >> 16 & 255);
-					if(connectionsMaskBytesCount > 3)
-					{
-						targetIndex++;
-						buffer[targetIndex] = (byte)(connectionsMask >> 24 & 255);
-					}
-				}
+				sendBufferReference[i + 1] = (byte)((connectionsMask >> (i * 8)) & 255ul);
+			}
+			return result;
+		}
+
+		/// <param name="buffer"><see cref="sendBufferReference"></param>
+		private int TryAddMessage(bool sequenced, ulong targets, int headerSize, byte[] data, int dataSize/*, out byte[] buffer*/)
+		{
+			if(sendMessages_count >= BUFFER_SIZE) return -1;
+
+			int messageHeaderSize = 2;
+			if(sequenced) messageHeaderSize++;
+
+			int fullMsgSize = headerSize + messageHeaderSize + LENGTH_BYTES_COUNT + dataSize;
+			if(fullMsgSize > MAX_MESSAGE_SIZE)
+			{
+				Debug.LogErrorFormat("Message is too long: {0}, max size: {1}", fullMsgSize, MAX_MESSAGE_SIZE);
+				return -1;
 			}
 
-			return true;
-		}
+			int id = (messageStartId + sendMessages_count) % IDS_COUNT;
+			int index = (sendMessages_index + sendMessages_count) % BUFFER_SIZE;
 
-		private byte[] TryAddModeData(int mode, uint targets, int addSize, byte[] data, int dataSize)
-		{
-			if(mode == MODE_UNRELIABLE)
+			sendBufferReference = new byte[fullMsgSize];
+
+			int headIndex = headerSize;
+			sendBufferReference[headIndex] = (byte)((id >> 8) & 255);
+			headIndex++;
+			sendBufferReference[headIndex] = (byte)(id & 255);
+			headIndex++;
+
+			if(sequenced)
 			{
-				if(unreliableBufferedCount >= UNRELIABLE_BUFFER_SIZE) return null;
-
-				int fullMsgSize = dataSize + 1 + addSize;
-				if(fullMsgSize > MAX_PACKET_SIZE)
+				if(lastSequenceGroup != targets || sequenceCounter >= BUFFER_SIZE)
 				{
-					Debug.LogErrorFormat("Message is too long: {0} max size: {1}", fullMsgSize, MAX_PACKET_SIZE);
-					return null;
+					lastSequenceGroup = targets;
+					sequenceCounter = 0;
 				}
-
-				int index = (unreliableBufferIndex + unreliableBufferedCount) % UNRELIABLE_BUFFER_SIZE;
-				var buffer = FillMessageData(unreliableBuffer, index, data, dataSize, addSize);
-
-				unreliableLengths[index] = fullMsgSize;
-				unreliableBufferedCount++;
-				return buffer;
+				sendBufferReference[headIndex] = (byte)sequenceCounter;
+				headIndex++;
+				sendMessages_values_sequenceId[index] = sequenceCounter;
+				sequenceCounter++;
 			}
-			else if(mode == MODE_RELIABLE || mode == MODE_RELIABLE_SEQUENCED)
+			else
 			{
-				if(updateReliable) UpdateReliable();
-
-				if(reliableBufferedCount >= RELIABLE_BUFFER_SIZE) return null;
-
-				int reliableHeadSize = 2;
-				if(mode == MODE_RELIABLE_SEQUENCED) reliableHeadSize++;
-
-				int fullMsgSize = dataSize + 1 + addSize + reliableHeadSize;
-				if(fullMsgSize > MAX_PACKET_SIZE)
-				{
-					Debug.LogErrorFormat("Message is too long: {0} max size: {1}", fullMsgSize, MAX_PACKET_SIZE);
-					return null;
-				}
-
-				int index = (reliableBufferIndex + reliableBufferedCount) % RELIABLE_BUFFER_SIZE;
-				var buffer = FillMessageData(reliableBuffer, index, data, dataSize, addSize + reliableHeadSize);
-
-				int id = (reliableStartId + reliableBufferedCount) % RELIABLE_IDS_COUNT;
-				buffer[1] = (byte)(id >> 8 & 255);
-				buffer[2] = (byte)(id & 255);
-				reliableExpectMask = reliableExpectMask | (1u << reliableBufferedCount);
-
-				reliableExpectedAcks[index] = manager.connectionsMask;
-				if(mode == MODE_RELIABLE_SEQUENCED)
-				{
-					if(reliableSequenceTargets == 0 || reliableSequenceTargets != targets || reliableSequenceStartIndex >= RELIABLE_BUFFER_SIZE)
-					{
-						reliableSequenceTargets = targets;
-						reliableSequenceStartIndex = 0;
-					}
-					buffer[3] = (byte)reliableSequenceStartIndex;
-					reliableSequenceStartIndex++;
-				}
-
-				reliableLengths[index] = fullMsgSize;
-				reliableBufferedCount++;
-				return buffer;
+				sendMessages_values_sequenceId[index] = -1;
 			}
-			return null;
-		}
 
-		private byte[] FillMessageData(byte[][] targetBuffer, int targetIndex, byte[] data, int dataLen, int dataIndex)
-		{
-			var buffer = targetBuffer[targetIndex];
-			if(buffer == null)
-			{
-				buffer = new byte[MAX_PACKET_SIZE];
-				targetBuffer[targetIndex] = buffer;
-			}
-			buffer[dataIndex] = (byte)dataLen;
-			Array.Copy(data, 0, buffer, dataIndex + 1, dataLen);
-			return buffer;
+			sendBufferReference[headIndex] = (byte)((dataSize >> 8) & 255);
+			headIndex++;
+			sendBufferReference[headIndex] = (byte)(dataSize & 255);
+			headIndex++;
+			Array.Copy(data, 0, sendBufferReference, headIndex, dataSize);
+
+			sendMessages_values_expectedMask[index] = targets;
+			sendMessages_values_data[index] = sendBufferReference;
+			messagesToSend = messagesToSend | (1u << index);
+			sendMessages_count++;
+			return id;
 		}
 		#endregion
 
-		#region reliable ack
+		#region ack
 		public void OnReceivedAck(int connection, int idStart, uint mask)
 		{
-			if(IdDiff(idStart, reliableStartId) > 0) mask <<= (idStart - reliableStartId + RELIABLE_IDS_COUNT) % RELIABLE_IDS_COUNT;
-			else mask >>= (reliableStartId - idStart + RELIABLE_IDS_COUNT) % RELIABLE_IDS_COUNT;
+			if(IdDiff(idStart, messageStartId) > 0) mask <<= (idStart - messageStartId + IDS_COUNT) % IDS_COUNT;
+			else mask >>= (messageStartId - idStart + IDS_COUNT) % IDS_COUNT;
 
-			int index = reliableBufferIndex;
+			bool shiftMessages = false;
+			int i = 0;
 			while(mask > 0)
 			{
-				if((mask & 1) == 1)
+				if((mask & 1) != 0)
 				{
-					uint expect = reliableExpectedAcks[index];
-					if(expect == MASTER_EXPECT_MASK)
+					int index = (sendMessages_index + i) % BUFFER_SIZE;
+					uint bit = 1u << index;
+					if((messagesToSend & bit) != 0)
 					{
-						if(manager.IsMasterConnection(connection))
+						bool sendComplete = false;
+						if((sendMessages_values_data[index][0] & MSG_TARGET_MASK) == TARGET_MASTER)
 						{
-							reliableExpectedAcks[index] = 0;
+							if(manager.IsMasterConnection(connection))
+							{
+								sendComplete = true;
+							}
 						}
-					}
-					else if((expect & (1u << connection)) != 0)
-					{
-						reliableExpectedAcks[index] = expect & ((1u << connection) ^ 0xFFFFFFFF);
+						else
+						{
+							ulong expect = sendMessages_values_expectedMask[index];
+							ulong expectBit = 1ul << connection;
+							if((expect & expectBit) != 0ul)
+							{
+								expect &= ~expectBit;
+								if(expect == 0ul)
+								{
+									sendComplete = true;
+								}
+								else
+								{
+									sendMessages_values_expectedMask[index] = expect;
+								}
+							}
+						}
+						if(sendComplete)
+						{
+							sendMessages_values_data[index] = null;
+							messagesToSend &= ~bit;
+
+							if(i == 0) shiftMessages = true;
+							manager.OnSendComplete(this, (idStart + i) % IDS_COUNT, true);
+						}
 					}
 				}
 				mask >>= 1;
-				index = (index + 1) % RELIABLE_BUFFER_SIZE;
+				i++;
 			}
-
-			updateReliable = true;
+			if(shiftMessages) ShiftMessages();
+			sendAttemptsMask &= messagesToSend;
 		}
 
-		private void UpdateReliable()
+		private void ShiftMessages()
 		{
-			updateReliable = false;
-
 			int count = 0;
-			reliableExpectMask = 0;
-			bool pick = true;
-			for(var i = 0; i < reliableBufferedCount; i++)
+			int index = sendMessages_index;
+			while((messagesToSend & (1u << index)) == 0 && count < sendMessages_count)
 			{
-				int index = (reliableBufferIndex + i) % RELIABLE_BUFFER_SIZE;
-				if(reliableExpectedAcks[index] == 0)
-				{
-					if(pick) count++;
-				}
-				else
-				{
-					pick = false;
-					reliableExpectMask |= 1u << i;
-				}
+				count++;
+				index = (index + 1) % BUFFER_SIZE;
 			}
-			reliableAttemptsMask &= reliableExpectMask;
-
-			if(count > 0)
-			{
-				reliableStartId = (reliableStartId + count) % RELIABLE_IDS_COUNT;
-				reliableBufferedCount -= count;
-				reliableBufferIndex = (reliableBufferIndex + count) % RELIABLE_BUFFER_SIZE;
-				reliableAttemptsMask >>= count;
-				reliableExpectMask >>= count;
-			}
+			messageStartId = (messageStartId + count) % IDS_COUNT;
+			sendMessages_count -= count;
+			sendMessages_index = (sendMessages_index + count) % BUFFER_SIZE;
 		}
 		#endregion
 
 		#region send
-		public void PrepareSendStream()
+		public int PrepareSendStream()
 		{
-			if(updateReliable) UpdateReliable();
-
-			dataBufferLength = 0;
-			int len = sendAckMasks.Length;
+			int dataBufferLength = 0;
+			int len = otherConnections_ackMessagesMask.Length;
 			for(var i = 0; i < len; i++)
 			{
-				uint mask = sendAckMasks[i];
+				uint mask = otherConnections_ackMessagesMask[i];
 				if(mask != 0)
 				{
-					int id = sendAckStartIds[i];
-					tmpDataBuffer[0] = RELIABLE_ACK_MSG_HEADER;
-					tmpDataBuffer[1] = (byte)(id >> 8 & 255);
-					tmpDataBuffer[2] = (byte)(id & 255);
-					tmpDataBuffer[3] = (byte)(mask >> 8 & 255);
-					tmpDataBuffer[4] = (byte)(mask & 255);
-					tmpDataBuffer[5] = (byte)i;
-					if(TryAddToBuffer(tmpDataBuffer, RELIABLE_ACK_DATA_LENGTH))
+					if((dataBufferLength + ACK_DATA_LENGTH) < MAX_PACKET_SIZE)
 					{
-						sendAckMasks[i] = 0;
+						int id = otherConnections_ackStartId[i];
+						packetFormationBuffer[dataBufferLength] = ACK_MSG_HEADER;
+						dataBufferLength++;
+						packetFormationBuffer[dataBufferLength] = (byte)i;
+						dataBufferLength++;
+						packetFormationBuffer[dataBufferLength] = (byte)((id >> 8) & 255);
+						dataBufferLength++;
+						packetFormationBuffer[dataBufferLength] = (byte)(id & 255);
+						dataBufferLength++;
+						packetFormationBuffer[dataBufferLength] = (byte)((mask >> 8) & 255);
+						dataBufferLength++;
+						packetFormationBuffer[dataBufferLength] = (byte)(mask & 255);
+						dataBufferLength++;
+						otherConnections_ackMessagesMask[i] = 0;
 					}
 					else break;
 				}
 			}
 
-			bool sendUnreliable = false;
-			int reliableSendIndex = 0;
+			int sendIndex = 0;
 			int prevSequence = -1;
-			bool sendSequenced = true;
-			while(unreliableBufferedCount > 0 || reliableSendIndex < reliableBufferedCount)
+			bool canSendSequenced = true;
+			while(sendIndex < sendMessages_count)
 			{
-				if(sendUnreliable && unreliableBufferedCount > 0)
+				int index = (sendMessages_index + sendIndex) % BUFFER_SIZE;
+				sendIndex++;
+
+				uint bit = 1u << index;
+				if((messagesToSend & bit) != 0 && (sendAttemptsMask & bit) == 0)
 				{
-					TryAddToBuffer(unreliableBuffer[unreliableBufferIndex], unreliableLengths[unreliableBufferIndex]);
-					unreliableBufferIndex = (unreliableBufferIndex + 1) % UNRELIABLE_BUFFER_SIZE;
-					unreliableBufferedCount--;
-				}
-				else if(reliableSendIndex < reliableBufferedCount)
-				{
-					uint mask = 1u << reliableSendIndex;
-					if((reliableExpectMask & mask) != 0)
+					int sequence = sendMessages_values_sequenceId[index];
+					if(sequence >= 0)
 					{
-						bool allowSend = true;
-
-						int index = (reliableBufferIndex + reliableSendIndex) % RELIABLE_BUFFER_SIZE;
-						var buffer = reliableBuffer[index];
-						if((buffer[0] & MSG_TYPE_MASK) == MODE_RELIABLE_SEQUENCED)
+						// If the sequence is less than or equal to the previous value, then a new group has started
+						// But only one group can be sent at a time 
+						if(canSendSequenced && sequence > prevSequence)
 						{
-							if(sendSequenced)
-							{
-								int sequence = buffer[3];
-								// If the sequence is less than or equal to the previous value, then a new group has started
-								// But only one group can be sent at a time 
-								if(sequence > prevSequence)
-								{
-									prevSequence = sequence;
-								}
-								else sendSequenced = false;
-							}
-
-							allowSend = sendSequenced;
-						}
-
-						if(allowSend)
-						{
-							if((reliableAttemptsMask & mask) == 0 && TryAddToBuffer(buffer, reliableLengths[index]))
-							{
-								reliableAttemptsMask |= mask;
-							}
+							prevSequence = sequence;
 						}
 						else
 						{
-							reliableAttemptsMask |= mask;
+							sendAttemptsMask |= bit;
+							continue;
 						}
 					}
-					reliableSendIndex++;
-				}
-				sendUnreliable = !sendUnreliable;
-			}
-			if(reliableAttemptsMask == reliableExpectMask) reliableAttemptsMask = 0;
-			connection.SetProgramVariable("dataBufferLength", dataBufferLength);
-			connection.SetProgramVariable("dataBuffer", dataBuffer);
-		}
 
-		private bool TryAddToBuffer(byte[] data, int count)
-		{
-			if(dataBufferLength + count >= MAX_PACKET_SIZE) return false;
-			Array.Copy(data, 0, dataBuffer, dataBufferLength, count);
-			dataBufferLength += count;
-			return true;
+					byte[] msgData = sendMessages_values_data[index];
+					int msgLength = msgData.Length;
+					if(dataBufferLength + msgLength < MAX_PACKET_SIZE)
+					{
+						Array.Copy(msgData, 0, packetFormationBuffer, dataBufferLength, msgLength);
+						dataBufferLength += msgLength;
+
+						sendAttemptsMask |= bit;
+					}
+				}
+			}
+			if(sendAttemptsMask == messagesToSend) sendAttemptsMask = 0;
+			return dataBufferLength;
 		}
 		#endregion
 
 		#region receive
-		public void OnReceiveUnreliable(int connectionIndex, byte[] dataBuffer, int index, int len)
+		public void OnReceive(int connectionIndex, int id, byte[] dataBuffer, int index, int len)
 		{
-			OnDataReceived(connectionIndex, dataBuffer, index, len);
-		}
-
-		public void OnReceiveReliable(int connectionIndex, int id, byte[] dataBuffer, int index, int len)
-		{
-			if(IsNewReliable(connectionIndex, id))
+			if(IsNewMessage(connectionIndex, id))
 			{
-				OnDataReceived(connectionIndex, dataBuffer, index, len);
+				manager.OnDataReceived(this, connectionIndex, dataBuffer, index, len, id);
 			}
 		}
 
-		public void OnReceiveReliableSequenced(int connectionIndex, int id, int sequence, byte[] dataBuffer, int index, int len)
+		public void OnReceiveSequenced(int connectionIndex, int id, int sequence, byte[] dataBuffer, int index, int len)
 		{
-			if(IsNewReliable(connectionIndex, id))
+			if(IsNewMessage(connectionIndex, id))
 			{
-				int sequenceStartIndex = receiveSequencedStartIndices[connectionIndex];
+				int sequenceStartIndex = otherConnections_sequenceStartIndex[connectionIndex];
 				if(sequence < sequenceStartIndex) sequenceStartIndex = 0;
 
-				var connectionBuffer = receiveSequencedBuffer[connectionIndex];
+				var ids = otherConnections_sequenceQueue_id[connectionIndex];
+				var connectionBuffer = otherConnections_sequenceQueue_data[connectionIndex];
 				if(sequence == sequenceStartIndex)
 				{
-					OnDataReceived(connectionIndex, dataBuffer, index, len);
+					manager.OnDataReceived(this, connectionIndex, dataBuffer, index, len, id);
 					sequenceStartIndex = sequence + 1;
-					while(sequenceStartIndex < RELIABLE_BUFFER_SIZE)
+
+					while(sequenceStartIndex < BUFFER_SIZE)
 					{
 						var buffer = connectionBuffer[sequenceStartIndex];
 						if(buffer == null) break;
 						connectionBuffer[sequenceStartIndex] = null;
+						manager.OnDataReceived(this, connectionIndex, buffer, 0, buffer.Length, ids[sequenceStartIndex]);
 						sequenceStartIndex++;
-
-						OnDataReceived(connectionIndex, buffer, 0, buffer.Length);
 					}
 				}
 				else
@@ -485,76 +501,71 @@ namespace UNet
 					var buffer = new byte[len];
 					Array.Copy(dataBuffer, index, buffer, 0, len);
 					connectionBuffer[sequence] = buffer;
+					ids[sequence] = id;
 				}
 
-				receiveSequencedStartIndices[connectionIndex] = sequenceStartIndex;
+				otherConnections_sequenceStartIndex[connectionIndex] = sequenceStartIndex;
 			}
 		}
 
-		private bool IsNewReliable(int connectionIndex, int id)
+		private bool IsNewMessage(int connectionIndex, int id)
 		{
-			uint mask = sendAckMasks[connectionIndex];
-			int minIndex;
-			if(mask == 0)
+			uint ackMask = otherConnections_ackMessagesMask[connectionIndex];
+			int ackOffset = 0;
+			if(ackMask == 0)
 			{
-				sendAckStartIds[connectionIndex] = id;
-				minIndex = id;
+				otherConnections_ackStartId[connectionIndex] = id;
 			}
 			else
 			{
-				minIndex = sendAckStartIds[connectionIndex];
-				if(IdDiff(id, minIndex) < 0)
+				ackOffset = IdDiff(id, otherConnections_ackStartId[connectionIndex]);
+				if(ackOffset < 0)
 				{
-					mask <<= minIndex - id;
-					minIndex = id;
-					sendAckStartIds[connectionIndex] = id;
+					ackMask <<= -ackOffset;
+					ackOffset = 0;
+
+					otherConnections_ackStartId[connectionIndex] = id;
 				}
 			}
-			uint bit = 1u << IdDiff(id, minIndex);
-			sendAckMasks[connectionIndex] = mask | bit;
+			uint bit = 1u << ackOffset;
+			otherConnections_ackMessagesMask[connectionIndex] = ackMask | bit;
 
-			int startId = receivedReliableStartIds[connectionIndex];
+			int startId = otherConnections_receiveStartId[connectionIndex];
 			if(startId < 0) startId = id;
-			int offset = IdDiff(id, startId);
-			if(offset > -RELIABLE_BUFFER_SIZE)
-			{
-				mask = receivedReliableMasks[connectionIndex];
-				if(offset < 0)
-				{
-					mask <<= -offset;
-					offset = 0;
-					startId = id;
-				}
-				else if(offset >= RELIABLE_BUFFER_SIZE)
-				{
-					offset = RELIABLE_BUFFER_SIZE - 1;
-					int newStart = (id - offset + RELIABLE_IDS_COUNT) % RELIABLE_IDS_COUNT;
-					int shift = IdDiff(newStart, startId);
-					if(shift < RELIABLE_BUFFER_SIZE) mask >>= shift;
-					startId = newStart;
-				}
 
-				if((mask & 1u << offset) == 0)
-				{
-					mask |= 1u << offset;
-					receivedReliableMasks[connectionIndex] = mask;
-					receivedReliableStartIds[connectionIndex] = startId;
-					return true;
-				}
+			int offset = IdDiff(id, startId);
+			uint mask = otherConnections_receiveMessagesMask[connectionIndex];
+			if(offset < 0)
+			{
+				if(offset <= -BUFFER_SIZE) mask = 0;
+				else mask <<= -offset;
+				offset = 0;
+				startId = id;
+			}
+			else if(offset >= BUFFER_SIZE)
+			{
+				offset = BUFFER_SIZE - 1;
+				int newStart = (id - offset + IDS_COUNT) % IDS_COUNT;
+				int shift = IdDiff(newStart, startId);
+				if(shift < BUFFER_SIZE) mask >>= shift;
+				startId = newStart;
+			}
+
+			if((mask & (1u << offset)) == 0)
+			{
+				mask |= 1u << offset;
+				otherConnections_receiveMessagesMask[connectionIndex] = mask;
+				otherConnections_receiveStartId[connectionIndex] = startId;
+				return true;
 			}
 			return false;
 		}
 
 		private int IdDiff(int id, int reference)
 		{
-			if(id < RELIABLE_IDS_COUNT_HALF) id += RELIABLE_IDS_COUNT;
-			if(reference < RELIABLE_IDS_COUNT_HALF) reference += RELIABLE_IDS_COUNT;
+			if(id < IDS_COUNT_HALF) id += IDS_COUNT;
+			if(reference < IDS_COUNT_HALF) reference += IDS_COUNT;
 			return id - reference;
-		}
-
-		private void OnDataReceived(int connectionIndex, byte[] dataBuffer, int index, int length)
-		{
-			manager.OnDataReceived(this, connectionIndex, dataBuffer, index, length);
 		}
 		#endregion
 	}

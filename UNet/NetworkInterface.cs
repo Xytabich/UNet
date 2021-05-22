@@ -5,29 +5,18 @@ namespace UNet
 {
 	public class NetworkInterface : UdonSharpBehaviour
 	{
-		/// <summary>
-		/// Method of sending data without guarantee of delivery.
-		/// Can be used for constantly updated values, such as the position of an object.
-		/// </summary>
-		public const int MODE_UNRELIABLE = 0;
-		/// <summary>
-		/// Method of sending data with guaranteed delivery but without strict order.
-		/// Uses most of the connection bandwidth, so it should be used for important messages.
-		/// </summary>
-		public const int MODE_RELIABLE = 1;
-		/// <summary>
-		///	Method of sending data with guaranteed delivery in strict order.
-		/// Uses even more bandwidth than MODE_RELIABLE.
-		/// </summary>
-		public const int MODE_RELIABLE_SEQUENCED = 2;
-
-		public const int MAX_PACKET_SIZE = 144;
+		public const int MAX_MESSAGE_SIZE = 512;
 
 		public NetworkManager manager;
 
 		public bool IsInitComplete()
 		{
 			return (bool)manager.GetProgramVariable("isInitComplete");
+		}
+
+		public bool HasOtherConnections()
+		{
+			return manager.activeConnectionsCount > 1;
 		}
 
 		/// <summary>
@@ -61,7 +50,18 @@ namespace UNet
 		/// 		<description>called before preparing the package for the next dispatch. Any data added in this callback will also participate in package preparation.</description>
 		/// 	</item>
 		/// 	<item>
-		/// 		<term>OnUNetReceived(int OnUNetReceived_sender, byte[] OnUNetReceived_dataBuffer, int OnUNetReceived_dataIndex, int OnUNetReceived_dataLength)</term>
+		/// 		<term>OnUNetSendComplete(int OnUNetSendComplete_messageId, bool OnUNetSendComplete_succeed)</term>
+		/// 		<description>called when the message has finished sending.</description>
+		/// 		<list>
+		/// 			<item>
+		/// 				OnUNetSendComplete_succeed:
+		/// 					true - the message was delivered to the recipient (but this does not mean that a sequenced message has been applied).
+		/// 					false - the send was canceled or the recipient left the room.
+		/// 			</item>
+		/// 		</list>
+		/// 	</item>
+		/// 	<item>
+		/// 		<term>OnUNetReceived(int OnUNetReceived_sender, byte[] OnUNetReceived_dataBuffer, int OnUNetReceived_dataIndex, int OnUNetReceived_dataLength, int OnUNetReceived_id)</term>
 		/// 		<description>called when the socket has received a message.</description>
 		/// 		<list>
 		/// 			<item>
@@ -75,6 +75,9 @@ namespace UNet
 		/// 			</item>
 		/// 			<item>
 		/// 				OnUNetReceived_dataLength - length of received data
+		/// 			</item>
+		/// 			<item>
+		/// 				OnUNetReceived_messageId - received message id
 		/// 			</item>
 		/// 		</list>
 		/// 	</item>
@@ -97,67 +100,71 @@ namespace UNet
 		/// <summary>
 		/// Returns max length of message for given options.
 		/// </summary>
-		/// <param name="mode">Send mode: <see cref="NetworkInterface.MODE_UNRELIABLE"/>, <see cref="NetworkInterface.MODE_RELIABLE"/>, <see cref="NetworkInterface.MODE_RELIABLE_SEQUENCED"/></param>
 		/// <param name="sendTargetsCount">Target clients count, for <see cref="NetworkInterface.SendAll"/> and <see cref="NetworkInterface.SendMaster"/> is always 0.</param>
 		/// <returns>Max length of message</returns>
-		public int GetMaxDataLength(int mode, int sendTargetsCount)
+		public int GetMaxDataLength(bool sequenced, int sendTargetsCount)
 		{
-			int len = MAX_PACKET_SIZE - 2;//header[byte] + length[byte]
-			if(mode == 1) len -= 2;//msg id[ushort]
-			else if(mode == 2) len -= 3;//msg id[ushort] + sequence[byte]
+			int len = MAX_MESSAGE_SIZE - 5;//header[byte] + length[ushort] + msg id[ushort]
+			if(sequenced) len -= 1;//msg id[ushort] + sequence[byte]
 			if(sendTargetsCount == 1) len -= 1;//connection index[byte]
-			else if(sendTargetsCount > 1) len -= 4;//connections map[uint]
+			else if(sendTargetsCount > 1) len -= manager.connectionsMaskBytesCount;
 			return len;
+		}
+
+		/// <summary>
+		/// Cancels the sending of the message with the given id.
+		/// This operation cannot affect the message if it has already been delivered to the recipients.
+		/// This method must be called before the end of the message delivery (OnUNetSendComplete event), otherwise it may disrupt the sending of other messages.
+		/// </summary>
+		public void CancelMessageSend(int messageId)
+		{
+			manager.CancelMessageSend(messageId);
 		}
 
 		/// <summary>
 		/// Sends message to other clients.
 		/// </summary>
-		/// <param name="mode">Send mode: <see cref="NetworkInterface.MODE_UNRELIABLE"/>, <see cref="NetworkInterface.MODE_RELIABLE"/>, <see cref="NetworkInterface.MODE_RELIABLE_SEQUENCED"/></param>
 		/// <param name="data">Array of data bytes</param>
 		/// <param name="dataLength">The length of data, must be less than or equals to <see cref="NetworkInterface.GetMaxDataLength"/></param>
-		/// <returns>True if the message has been added to the send buffer.</returns>
-		public bool SendAll(int mode, byte[] data, int dataLength)
+		/// <returns>Message ID or -1 if the message was not added to the buffer</returns>
+		public int SendAll(bool sequenced, byte[] data, int dataLength)
 		{
-			return manager.SendAll(mode, data, dataLength);
+			return manager.SendAll(sequenced, data, dataLength);
 		}
 
 		/// <summary>
 		/// Sends message to master client only.
 		/// </summary>
-		/// <param name="mode">Send mode: <see cref="NetworkInterface.MODE_UNRELIABLE"/>, <see cref="NetworkInterface.MODE_RELIABLE"/>, <see cref="NetworkInterface.MODE_RELIABLE_SEQUENCED"/></param>
 		/// <param name="data">Array of data bytes</param>
 		/// <param name="dataLength">The length of data, must be less than or equals to <see cref="NetworkInterface.GetMaxDataLength"/></param>
-		/// <returns>True if the message has been added to the send buffer.</returns>
-		public bool SendMaster(int mode, byte[] data, int dataLength)
+		/// <returns>Message ID or -1 if the message was not added to the buffer</returns>
+		public int SendMaster(bool sequenced, byte[] data, int dataLength)
 		{
-			return manager.SendMaster(mode, data, dataLength);
+			return manager.SendMaster(sequenced, data, dataLength);
 		}
 
 		/// <summary>
 		/// Sends message to target client only.
 		/// </summary>
-		/// <param name="mode">Send mode: <see cref="NetworkInterface.MODE_UNRELIABLE"/>, <see cref="NetworkInterface.MODE_RELIABLE"/>, <see cref="NetworkInterface.MODE_RELIABLE_SEQUENCED"/></param>
 		/// <param name="data">Array of data bytes</param>
 		/// <param name="dataLength">The length of data, must be less than or equals to <see cref="NetworkInterface.GetMaxDataLength"/></param>
 		/// <param name="targetPlayerId">Target client <see cref="VRCPlayerApi.playerId"/></param>
-		/// <returns>True if the message has been added to the send buffer.</returns>
-		public bool SendTarget(int mode, byte[] data, int dataLength, int targetPlayerId)
+		/// <returns>Message ID or -1 if the message was not added to the buffer</returns>
+		public int SendTarget(bool sequenced, byte[] data, int dataLength, int targetPlayerId)
 		{
-			return manager.SendTarget(mode, data, dataLength, targetPlayerId);
+			return manager.SendTarget(sequenced, data, dataLength, targetPlayerId);
 		}
 
 		/// <summary>
 		/// Sends message to target clients only.
 		/// </summary>
-		/// <param name="mode">Send mode: <see cref="NetworkInterface.MODE_UNRELIABLE"/>, <see cref="NetworkInterface.MODE_RELIABLE"/>, <see cref="NetworkInterface.MODE_RELIABLE_SEQUENCED"/></param>
 		/// <param name="data">Array of data bytes</param>
 		/// <param name="dataLength">The length of data, must be less than or equals to <see cref="NetworkInterface.GetMaxDataLength"/></param>
 		/// <param name="targetPlayerIds">Target clients <see cref="VRCPlayerApi.playerId"/></param>
-		/// <returns>True if the message has been added to the send buffer.</returns>
-		public bool SendTargets(int mode, byte[] data, int dataLength, int[] targetPlayerIds)
+		/// <returns>Message ID or -1 if the message was not added to the buffer</returns>
+		public int SendTargets(bool sequenced, byte[] data, int dataLength, int[] targetPlayerIds)
 		{
-			return manager.SendTargets(mode, data, dataLength, targetPlayerIds);
+			return manager.SendTargets(sequenced, data, dataLength, targetPlayerIds);
 		}
 	}
 }
