@@ -1,52 +1,55 @@
 ﻿using System;
 using UdonSharp;
+using UnityEngine;
 using VRC.SDKBase;
 
 namespace UNet
 {
 	/// <summary>
-	/// It is a bridge between all clients, receives and sends data using UdonSync and encoding data in base64.
-	/// You can use your own data encoding to increase network bandwidth, but converting to base64 and vice versa is very resource intensive and very fast.
+	/// It is a bridge between all clients, receives and sends data using UdonSync.
 	/// </summary>
+	[UdonBehaviourSyncMode(BehaviourSyncMode.Manual)]
 	public class Connection : UdonSharpBehaviour
 	{
 		[UdonSynced]
-		private string dataPart1 = "";
-		[UdonSynced]
-		private string dataPart2 = "";
+		private byte[] packet = new byte[0];
 
 		private int connectionIndex = -1;
-		private NetworkManager manager = null;
-
-		private int dataBufferLength;
+		private NetworkManager manager;
 		private byte[] dataBuffer;
+
+		private byte[] emptyData = new byte[0];
+
+		public void Init(int index, NetworkManager manager)
+		{
+			this.connectionIndex = index;
+			this.manager = manager;
+		}
+
+		public void SetDataBuffer(byte[] dataBuffer)
+		{
+			this.dataBuffer = dataBuffer;
+		}
 
 		public override void OnPreSerialization()
 		{
 			if(connectionIndex < 0) return;
 
-			if(manager.PrepareSendStream(connectionIndex))
+			int dataBufferLength = manager.PrepareSendStream(connectionIndex);
+			if(dataBufferLength < 1)
 			{
-				if(dataBufferLength < 1)
-				{
-					dataPart1 = "";
-					dataPart2 = "";
-					return;
-				}
-
-				string data = Convert.ToBase64String(dataBuffer, 0, dataBufferLength);
-				int splitIndex = data.Length / 2;
-				// The data is split into 2 parts because it allows more data to pass through the network than using one long string
-				dataPart1 = data.Substring(0, splitIndex);
-				dataPart2 = data.Substring(splitIndex);
+				packet = emptyData;
+				return;
 			}
+
+			packet = new byte[dataBufferLength];
+			Array.Copy(dataBuffer, packet, dataBufferLength);
 		}
 
-		public override void OnOwnershipTransferred()
+		public override void OnOwnershipTransferred(VRCPlayerApi player)
 		{
 			if(connectionIndex < 0) return;
 
-			var player = Networking.GetOwner(gameObject);
 			if(!player.isMaster)
 			{
 				manager.OnOwnerReceived(connectionIndex, player.playerId);
@@ -57,15 +60,11 @@ namespace UNet
 		{
 			if(connectionIndex < 0) return;
 
-			string data = dataPart1 + dataPart2;
-			dataPart1 = "";
-			dataPart2 = "";
-			if(!string.IsNullOrEmpty(data))
+			if(packet.Length > 0)
 			{
-				dataBuffer = Convert.FromBase64String(data);
-				dataBufferLength = dataBuffer.Length;
-				manager.HandlePacket(connectionIndex, dataBuffer, dataBufferLength);
+				manager.HandlePacket(connectionIndex, packet, packet.Length);
 			}
+			packet = emptyData;
 		}
 	}
 }
