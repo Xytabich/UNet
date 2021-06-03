@@ -12,7 +12,7 @@ You can also use [Rich Text](https://docs.unity3d.com/Documentation/Manual/Style
 - TarotReaderFrog
 
 ### Helpers
-They were of great help in testing and tuning the keyboard, as well as offering interesting ideas.
+They were of great help in testing and setting up the keyboard, as well as offering interesting ideas.
 - Rianolakas
 - Ain
 - SleeponSunday
