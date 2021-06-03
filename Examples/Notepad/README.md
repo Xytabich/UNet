@@ -19,8 +19,8 @@ They were of great help in testing and tuning the keyboard, as well as offering 
 - BohemGrove
 
 ### Setup
-- Download [latest unitypacke](https://github.com/Xytabich/UNet/blob/master/Examples/Notepad/Notepad-2.1.0.unitypackage) and upack it
 - Setup [UNet](https://github.com/Xytabich/UNet)
+- Download [latest unitypackage](https://github.com/Xytabich/UNet/blob/master/Examples/Notepad/Notepad-2.1.0.unitypackage) and upack it
 - Add `UNet-NotepadsManager` to the scene and adjust the position where the tablet will spawn. *Note:* do not rename this object.
 - Duplicate child object, depending on the capacity of the world, and put them in the VRC Pool list, which is located on `UNet-NotepadsManager`.
 - Add trigger (ui button, for example) that calls "SpawnNotepad" event on `UNet-NotepadsManager`.
