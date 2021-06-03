@@ -23,7 +23,7 @@ Table of contents:
 ## Common info
 Supports up to 64 connections (including own).
 
-**Attention:** The examples use the old version of UNet, new examples will be available soon.
+Test world (source assets are available in examples): https://www.vrchat.com/home/launch?worldId=wrld_dbb598b1-5a70-4b03-8bd0-fa620e3788ca
 
 ### <a name="SupportedDeliveryMethods"></a> Supported delivery methods:
 - Normal - data will certainly be delivered, but order is not guaranteed. For example, can be used for chat messages or some actions on the map.
