@@ -51,7 +51,7 @@ A message can have different endpoints (client, player) and different delivery m
 
 ### <a name="SystemProblems"></a> System problems:
 - Low delivery speed, round trip takes 400-800ms.
-- Due to packet loss when the network is heavily loaded, the delivery speed may increase significantly
+- Due to packet loss when the network is heavily loaded, the delivery time may increase significantly
 - The volume of messages sent from all behaviors on the scene cannot exceed about 10kb/s, therefore the maximum packet size and the speed of sending messages depends on the number of synchronized objects on the scene.
 
 ## <a name="SystemInfo"></a> System info
