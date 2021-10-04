@@ -18,7 +18,6 @@ Table of contents:
   - [NetworkInterface](#NetworkInterface)
 - [Serialization](#Serialization)
 - [Setup](#Setup)
-- [Contact](#Contact)
 
 ## Common info
 Supports up to 64 connections (including own).
