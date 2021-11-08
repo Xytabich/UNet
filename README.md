@@ -112,7 +112,7 @@ public void OnUNetReceived(); // Called when the socket has received a message.
 ```
 ```cs
 private int OnUNetSendComplete_messageId; // Id of message
-private int OnUNetSendComplete_succeed; // Whether the message was delivered or canceled
+private bool OnUNetSendComplete_succeed; // Whether the message was delivered or canceled
 
 public void OnUNetSendComplete(); // Called when the message has finished sending
 ```
