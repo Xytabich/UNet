@@ -172,6 +172,7 @@ Information about type sizes and other additional descriptions can be found in t
 - Download [latest](https://github.com/Xytabich/UNet/releases/latest) unity package, and upack it.
 - Add `UNetInstance` prefab to the scene.
 - Duplicate the `Connection` child element for the room's capacity.
+- Add reference to UNet assembly definition.
 - Add event listeners via NetworkInterface
 - Wait for the `OnUNetInit` event and start sending your messages.
 - When a message is received, `OnUNetReceived` is called on all event listeners.
