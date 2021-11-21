@@ -131,7 +131,7 @@ variable-length uint
 Information about type sizes and other additional descriptions can be found in the built-in xml documentation.
 
 ## <a name="Setup"></a> Setup
-- Download [latest](https://github.com/Xytabich/UNet/releases/latest) unity package, and upack it.
+- Download [latest](https://github.com/Xytabich/UNet/releases/tag/k2.1.0) unity package for Katsudon, and upack it.
 - Add `UNetInstance` prefab to the scene.
 - Duplicate the `Connection` child element for the room's capacity.
 - Add event listeners via NetworkManager
