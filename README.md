@@ -2,6 +2,8 @@
 UNet (UDON Networking) is a simple network system that provides reliable binary data transfer and serialization for Udon.
 UNet supports message management, sending messages in a strict sequence, targeting messages (to everyone, only the master or players from the list).
 
+The Katsudon version is available [here](https://github.com/Xytabich/UNet/tree/katsudon).
+
 Table of contents:
 - Common info
   - [Supported delivery methods](#SupportedDeliveryMethods)
