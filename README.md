@@ -171,7 +171,7 @@ variable-length uint
 Information about type sizes and other additional descriptions can be found in the built-in xml documentation.
 
 ## <a name="Setup"></a> Setup
-- Download [latest](https://github.com/Xytabich/UNet/releases/tag/2.0.0) unity package for UdonSharp, and upack it.
+- Download [latest](https://github.com/Xytabich/UNet/releases/tag/2.0.0) unity package for UdonSharp, and unpack it.
 - Add `UNetInstance` prefab to the scene.
 - Duplicate the `Connection` child element for the room's capacity.
 - Add event listeners via NetworkInterface.
