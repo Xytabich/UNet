@@ -25,6 +25,7 @@ namespace Xytabich.UNet.Notepad
 		public ScrollRect notesScroll;
 		public Toggle autoDeleteOld;
 		public GameObject notePrefab;
+		public GameObject[] masterObjects;
 
 		public float notesPaddingInControl;
 		public float notesPaddingInView;
@@ -35,6 +36,8 @@ namespace Xytabich.UNet.Notepad
 		private NetworkInterface network;
 		private ByteBufferWriter writer;
 		private ByteBufferReader reader;
+
+		private NotepadsManager manager;
 
 		private bool isLocal;
 		private bool syncRequested;
@@ -77,8 +80,21 @@ namespace Xytabich.UNet.Notepad
 			notesCount = 0;
 			notesText = new Text[4];
 
-			var manager = GameObject.Find("UNet-NotepadsManager").GetComponent<NotepadsManager>();
+			manager = GameObject.Find("UNet-NotepadsManager").GetComponent<NotepadsManager>();
 			manager.SetNotepadForPlayer(owner.playerId, this);
+			if(isLocal)
+			{
+				var notepadSpawnPoint = manager.notepadSpawnPoint;
+				transform.position = notepadSpawnPoint.position;
+				transform.rotation = notepadSpawnPoint.rotation;
+			}
+			else if(Networking.IsMaster)
+			{
+				foreach(var obj in masterObjects)
+				{
+					obj.SetActive(true);
+				}
+			}
 		}
 
 		void OnDisable()
@@ -111,6 +127,13 @@ namespace Xytabich.UNet.Notepad
 		public override void OnPlayerLeft(VRCPlayerApi player)
 		{
 			if(player == null) return;
+			if(!isLocal && Networking.IsMaster)
+			{
+				foreach(var obj in masterObjects)
+				{
+					obj.SetActive(true);
+				}
+			}
 
 			if(VRCPlayerApi.GetPlayerCount() < 2)
 			{
@@ -314,6 +337,15 @@ namespace Xytabich.UNet.Notepad
 					RemoveNote(i);
 					break;
 				}
+			}
+		}
+
+		public void OnMasterRemovePressed()
+		{
+			if(isLocal) return;
+			if(Networking.IsMaster)
+			{
+				manager.MasterDespawnNotepad(Networking.GetOwner(gameObject).playerId);
 			}
 		}
 

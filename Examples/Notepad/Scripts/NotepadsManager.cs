@@ -16,8 +16,12 @@ namespace Xytabich.UNet.Notepad
 		private const byte NOTEPAD_NOTE = 0X04;
 		private const byte NOTEPAD_REMOVE = 0X05;
 		private const byte NOTEPAD_REMOVE_ALL = 0X06;
+		private const byte REQUEST_NOTEPAD_DESPAWN = 0x07;
 
 		public VRCObjectPool notepadsPool;
+
+		[HideInInspector, NonSerialized]
+		public Transform notepadSpawnPoint;
 
 		private Notepad localNotepad;
 		private NetworkInterface network = null;
@@ -46,25 +50,13 @@ namespace Xytabich.UNet.Notepad
 		void Start()
 		{
 			notepads = new Notepad[4];
+			notepadSpawnPoint = transform;
 			if(network == null) FindNetwork();
 		}
 
 		public override void OnPlayerLeft(VRCPlayerApi player)
 		{
-			int index = Array.IndexOf(players, player.playerId, 0, recordsCount);
-			if(index < 0) return;
-
-			if(Networking.IsMaster) notepadsPool.Return(notepads[index].gameObject);
-
-			recordsCount--;
-			if(index < recordsCount)
-			{
-				int fromIndex = index + 1;
-				int moveCount = recordsCount - index;
-				Array.Copy(players, fromIndex, players, index, moveCount);
-				Array.Copy(notepads, fromIndex, notepads, index, moveCount);
-			}
-			notepads[recordsCount] = null;
+			if(player != null) DespawnNotepad(player.playerId);
 		}
 
 		public void OnUNetReceived()
@@ -93,15 +85,35 @@ namespace Xytabich.UNet.Notepad
 							requestedSyncsCount++;
 						}
 						break;
+					case REQUEST_NOTEPAD_DESPAWN:
+						{
+							var player = VRCPlayerApi.GetPlayerById(OnUNetReceived_sender);
+							if(player != null && player.isMaster)
+							{
+								OnUNetReceived_dataIndex++;
+								int targetPlayer = reader.ReadInt32(OnUNetReceived_dataBuffer, OnUNetReceived_dataIndex);
+								if(targetPlayer == Networking.LocalPlayer.playerId)
+								{
+									localNotepad = null;
+								}
+								else
+								{
+									DespawnNotepad(targetPlayer);
+								}
+							}
+						}
+						break;
 					case NOTEPAD_SYNC:
 					case NOTEPAD_NOTE:
 					case NOTEPAD_REMOVE:
 					case NOTEPAD_REMOVE_ALL:
-						int index = Array.IndexOf(players, OnUNetReceived_sender);
-						if(index >= 0)
 						{
-							OnUNetReceived_dataIndex++;
-							notepads[index].OnNetworkMessage(type, OnUNetReceived_dataBuffer, OnUNetReceived_dataIndex);
+							int index = Array.IndexOf(players, OnUNetReceived_sender, 0, recordsCount);
+							if(index >= 0)
+							{
+								OnUNetReceived_dataIndex++;
+								notepads[index].OnNetworkMessage(type, OnUNetReceived_dataBuffer, OnUNetReceived_dataIndex);
+							}
 						}
 						break;
 				}
@@ -146,6 +158,7 @@ namespace Xytabich.UNet.Notepad
 		public void SpawnNotepad()
 		{
 			if(network == null || !network.IsInitComplete()) return;
+			this.notepadSpawnPoint = transform;
 
 			if(localNotepad == null)
 			{
@@ -168,14 +181,58 @@ namespace Xytabich.UNet.Notepad
 			else
 			{
 				var notepadTransform = localNotepad.transform;
-				notepadTransform.position = transform.position;
-				notepadTransform.rotation = transform.rotation;
+				notepadTransform.position = notepadSpawnPoint.position;
+				notepadTransform.rotation = notepadSpawnPoint.rotation;
+			}
+		}
+
+		public void MasterDespawnNotepad(int playerId)
+		{
+			if(Networking.IsMaster)
+			{
+				var data = new byte[6];
+				data[0] = NOTEPAD_NETWORK_MESSAGE;
+				data[1] = REQUEST_NOTEPAD_DESPAWN;
+				writer.WriteInt32(playerId, data, 2);
+				notepadRequestSended = network.SendAll(false, data, 6);
+				DespawnNotepad(playerId);
+			}
+		}
+
+		public void SpawnNotepadOnPoint(Transform spawnPoint)
+		{
+			if(network == null || !network.IsInitComplete()) return;
+			this.notepadSpawnPoint = spawnPoint;
+
+			if(localNotepad == null)
+			{
+				if(notepadRequested) return;
+
+				notepadRequested = true;
+				if(Networking.IsMaster)
+				{
+					if(notepadsPool.TryToSpawn() == null)
+					{
+						Debug.LogError("There is no notepad object in the pool");
+						return;
+					}
+				}
+				else
+				{
+					notepadRequestSended = network.SendMaster(false, new byte[] { NOTEPAD_NETWORK_MESSAGE, REQUEST_NOTEPAD_SPAWN }, 2);
+				}
+			}
+			else
+			{
+				var notepadTransform = localNotepad.transform;
+				notepadTransform.position = notepadSpawnPoint.position;
+				notepadTransform.rotation = notepadSpawnPoint.rotation;
 			}
 		}
 
 		public void SetNotepadForPlayer(int playerId, Notepad notepad)
 		{
-			if(Array.IndexOf(players, playerId) >= 0) return;
+			if(Array.IndexOf(players, playerId, 0, recordsCount) >= 0) return;
 
 			if(network == null) FindNetwork();
 			if(playerId == Networking.LocalPlayer.playerId)
@@ -208,6 +265,24 @@ namespace Xytabich.UNet.Notepad
 			recordsCount++;
 
 			notepad.Init(network, writer, reader);
+		}
+
+		private void DespawnNotepad(int playerId)
+		{
+			int index = Array.IndexOf(players, playerId, 0, recordsCount);
+			if(index < 0) return;
+
+			if(Networking.IsMaster) notepadsPool.Return(notepads[index].gameObject);
+
+			recordsCount--;
+			if(index < recordsCount)
+			{
+				int fromIndex = index + 1;
+				int moveCount = recordsCount - index;
+				Array.Copy(players, fromIndex, players, index, moveCount);
+				Array.Copy(notepads, fromIndex, notepads, index, moveCount);
+			}
+			notepads[recordsCount] = null;
 		}
 
 		private void FindNetwork()
