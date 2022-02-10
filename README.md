@@ -87,7 +87,6 @@ int SendTargets(bool sequenced, byte[] data, int dataLength, int[] targetPlayerI
 ```
 
 #### <a name="NetworkEvents"></a> Network events description
-Callbacks must be implemented as described, i.e. using public methods and variables as arguments.
 ```cs
 public delegate void OnUNetInit(); // Called when the network system is fully initialized and you can start sending data.
 
