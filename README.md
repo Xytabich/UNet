@@ -46,8 +46,8 @@ UNet uses a synchronized byte array in manual synchronization mode.
 Data delivery speed depends on the current network congestion.
 
 A message can have different endpoints (client, player) and different delivery methods.
-- Every tick of the network, messages are packed into a packet and sent.
-- The maximum message size is set to 512 bytes, you can change the MAX_PACKET_SIZE constants in Socket.cs and NetworkInterface.cs.
+- Every tick of the network, the messages are collected into a packet and sent.
+- The maximum message size is set to 512 bytes, you can change the MAX_MESSAGE_SIZE constants in Socket.cs and NetworkInterface.cs.
 - The maximum packet size is set to 2048 bytes, you can change the MAX_PACKET_SIZE constant in Socket.cs if you need to increase or decrease the bandwidth.
 
 ### <a name="SystemProblems"></a> System problems:
