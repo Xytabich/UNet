@@ -58,7 +58,7 @@ namespace UNet
 		/// <returns>Size in bytes</returns>
 		public int WriteSByte(sbyte value, byte[] buffer, int index)
 		{
-			buffer[index] = (byte)(value < 0 ? (value + 0xFF) : value);
+			buffer[index] = (byte)(value < 0 ? (value + 256) : value);
 			return 1;
 		}
 

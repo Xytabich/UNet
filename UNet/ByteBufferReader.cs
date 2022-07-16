@@ -57,7 +57,7 @@ namespace UNet
 		public sbyte ReadSByte(byte[] buffer, int index)
 		{
 			int value = buffer[index];
-			if(value > 0x80) value = value - 0xFF;
+			if(value >= 0x80) value = value - 256;
 			return Convert.ToSByte(value);
 		}
 
