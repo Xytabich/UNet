@@ -2,6 +2,7 @@
 using UdonSharp;
 using UnityEngine;
 using VRC.SDKBase;
+using VRC.Udon.Common;
 
 namespace UNet
 {
@@ -56,7 +57,7 @@ namespace UNet
 			}
 		}
 
-		public override void OnDeserialization()
+		public override void OnDeserialization(DeserializationResult result)
 		{
 			if(connectionIndex < 0) return;
 

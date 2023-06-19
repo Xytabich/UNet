@@ -2,6 +2,7 @@
 using UdonSharp;
 using UnityEngine;
 using VRC.SDKBase;
+using VRC.Udon.Common;
 
 namespace UNet
 {
@@ -103,6 +104,7 @@ namespace UNet
 
 		public override void OnPlayerLeft(VRCPlayerApi player)
 		{
+			if(player == null) return;
 			int id = player.playerId;
 			int index = Array.IndexOf(connectionsOwners, id);
 			if(index >= 0) OnConnectionRelease(index);
@@ -131,7 +133,7 @@ namespace UNet
 			}
 		}
 
-		public override void OnDeserialization()
+		public override void OnDeserialization(DeserializationResult result)
 		{
 			if(masterConnection >= 0 && !isInitComplete)
 			{
